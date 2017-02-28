@@ -87,7 +87,7 @@ public:
 	
     int n(int prim) const { return n_[prim]; }
     int subl(int prim) const { return sub_l_[prim]; }
-	
+    double maxCoeff(int l) const; 
 	// Evaluate U_l(r)
 	double evaluate(double r, int l) const;
 	

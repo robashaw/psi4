@@ -58,11 +58,23 @@ namespace psi {
 	           nfunction_==RHS.nfunction_
 	    );
 	}
+  
 	
 	GaussianECPShell::GaussianECPShell(int am, int nprimitive, const double *oc, const double *e, const int *n,
 					 const int *subl, int nc, const double* center, int start) 
 						 : GaussianShell(am, nprimitive, oc, oc, oc, e, GaussianType::Cartesian, nc, center, start),
 					 n_(n), sub_l_(subl) {}
+
+	double GaussianECPShell::maxCoeff(int l) const {
+		double max_coeff = 0.0; 
+		for (int i = 0; i < nprimitive_; i++) {
+			if (sub_l_[i] == l) {
+				double coeff = fabs(original_coef_[i]);
+				max_coeff = max_coeff > coeff ? max_coeff : coeff; 
+			}	
+		}
+		return max_coeff; 
+	} 
 
 	// class GaussianECPShell
 	// Evaluate U_l(r), assuming that gaussians sorted by angular momentum

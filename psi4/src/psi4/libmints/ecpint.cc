@@ -404,8 +404,6 @@ void RadialIntegral::type1(int maxL, int N, int offset, const GaussianECPShell &
 	int npA = shellA.nprimitive(); 
 	int npB = shellB.nprimitive();
 	
-	buildParameters(shellA, shellB, data);
-	
 	int gridSize = bigGrid.getN();
 
 	// Now pretabulate integrand
@@ -668,77 +666,82 @@ void ECPInt::makeC(FiveIndex<double> &C, int L, double *A) {
 
 void ECPInt::type1(const GaussianECPShell &U, const GaussianShell &shellA, const GaussianShell &shellB, ShellPairData &data, FiveIndex<double> &CA, FiveIndex<double> &CB, TwoIndex<double> &values) { 
 	
-	int LA = data.LA; int LB = data.LB;
-	int maxLBasis = data.maxLBasis;
+	radInts.buildParameters(shellA, shellB, data);
 	
-	// Build radial integrals
-	int L = LA + LB;
-	TwoIndex<double> temp;
-	ThreeIndex<double> radials(L+1, L+1, 2*L+1);
-	for (int ix = 0; ix <= L; ix++) {
-		radInts.type1(ix, ix, ix % 2, U, shellA, shellB, data, temp);
-		for(int l = 0; l <= ix; l++) {
-			for (int m = -l; m <= l; m++) radials(ix, l, l+m) = temp(l, l+m);
+	if (U.maxCoeff(U.am()) > 1e-12) {
+	
+		int LA = data.LA; int LB = data.LB;
+		int maxLBasis = data.maxLBasis;
+	
+		// Build radial integrals
+		int L = LA + LB;
+		TwoIndex<double> temp;
+		ThreeIndex<double> radials(L+1, L+1, 2*L+1);
+		for (int ix = 0; ix <= L; ix++) {
+			radInts.type1(ix, ix, ix % 2, U, shellA, shellB, data, temp);
+			for(int l = 0; l <= ix; l++) {
+				for (int m = -l; m <= l; m++) radials(ix, l, l+m) = temp(l, l+m);
+			}
 		}
-	}
 	
-	values.assign(data.ncartA, data.ncartB, 0.0);
+		values.assign(data.ncartA, data.ncartB, 0.0);
 	
-	// Unpack positions
-	double Ax = data.A[0]; double Ay = data.A[1]; double Az = data.A[2];
-	double Bx = data.B[0]; double By = data.B[1]; double Bz = data.B[2];
+		// Unpack positions
+		double Ax = data.A[0]; double Ay = data.A[1]; double Az = data.A[2];
+		double Bx = data.B[0]; double By = data.B[1]; double Bz = data.B[2];
 	
-	// Calculate chi_ab for all ab in shells
-	int z1, z2, lparity, mparity, msign, ix, k, l, m;
-	double C;
-	int na = 0, nb = 0;
-	for (int x1 = LA; x1 >= 0; x1--) {
-		for (int y1 = LA-x1; y1 >= 0; y1--) {
-			z1 = LA - x1 - y1;
-			nb = 0;
+		// Calculate chi_ab for all ab in shells
+		int z1, z2, lparity, mparity, msign, ix, k, l, m;
+		double C;
+		int na = 0, nb = 0;
+		for (int x1 = LA; x1 >= 0; x1--) {
+			for (int y1 = LA-x1; y1 >= 0; y1--) {
+				z1 = LA - x1 - y1;
+				nb = 0;
 			
-			for (int x2 = LB; x2 >= 0; x2--) {
-				for (int y2 = LB-x2; y2 >=0; y2--) {
-					z2 = LB - x2 - y2;
+				for (int x2 = LB; x2 >= 0; x2--) {
+					for (int y2 = LB-x2; y2 >=0; y2--) {
+						z2 = LB - x2 - y2;
 					
-					for (int k1 = 0; k1 <= x1; k1++) {
-						for (int k2 = 0; k2 <= x2; k2++) {
-							k = k1 + k2;
+						for (int k1 = 0; k1 <= x1; k1++) {
+							for (int k2 = 0; k2 <= x2; k2++) {
+								k = k1 + k2;
 							
-							for (int l1 = 0; l1 <= y1; l1++) {
-								for (int l2 = 0; l2 <= y2; l2++) {
-									l = l1 + l2;
+								for (int l1 = 0; l1 <= y1; l1++) {
+									for (int l2 = 0; l2 <= y2; l2++) {
+										l = l1 + l2;
 									
-									for (int m1 = 0; m1 <= z1; m1++) {
-										for (int m2 = 0; m2 <= z2; m2++){
-											m = m1 + m2;
-											C = CA(0, na, k1, l1, m1) * CB(0, nb, k2, l2, m2);
+										for (int m1 = 0; m1 <= z1; m1++) {
+											for (int m2 = 0; m2 <= z2; m2++){
+												m = m1 + m2;
+												C = CA(0, na, k1, l1, m1) * CB(0, nb, k2, l2, m2);
 
-											if ( fabs(C) > 1e-14 ) {
-												ix = k + l + m;
-												lparity = ix % 2;
-												msign = 1 - 2*(l%2);
-												mparity = (lparity + m) % 2;
+												if ( fabs(C) > 1e-14 ) {
+													ix = k + l + m;
+													lparity = ix % 2;
+													msign = 1 - 2*(l%2);
+													mparity = (lparity + m) % 2;
 												
-												for (int lam = lparity; lam <= ix; lam+=2) {
-													for (int mu = mparity; mu <= lam; mu+=2) 
-														values(na, nb) += C * angInts.getIntegral(k, l, m, lam, msign*mu) * radials(ix, lam, lam+msign*mu);
-												}
+													for (int lam = lparity; lam <= ix; lam+=2) {
+														for (int mu = mparity; mu <= lam; mu+=2) 
+															values(na, nb) += C * angInts.getIntegral(k, l, m, lam, msign*mu) * radials(ix, lam, lam+msign*mu);
+													}
 								
+												}
 											}
 										}
 									}
 								}
 							}
 						}
-					}
 					
-					values(na, nb) *= 4.0 * M_PI;
-					nb++;
+						values(na, nb) *= 4.0 * M_PI;
+						nb++;
+					}
 				}
-			}
 			
-			na++;
+				na++;
+			}
 		}
 	}
 	
