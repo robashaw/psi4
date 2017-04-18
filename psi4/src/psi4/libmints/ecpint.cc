@@ -380,7 +380,7 @@ namespace psi {
 		double r;
 		for (int i = 0; i < gridSize; i++) {
 			r = gridPoints[i];
-			Utab[i] = pow(r, N+2) * U.evaluate(r, l);
+			Utab[i] = pow(r, N) * U.evaluate(r, l);
 		}
 	}
 
