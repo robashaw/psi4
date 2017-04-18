@@ -3,7 +3,7 @@
 .. #
 .. # Psi4: an open-source quantum chemistry software package
 .. #
-.. # Copyright (c) 2007-2016 The Psi4 Developers.
+.. # Copyright (c) 2007-2017 The Psi4 Developers.
 .. #
 .. # The copyrights for code used from other parties are included in
 .. # the corresponding files.
@@ -447,7 +447,7 @@ Although |PSIfour| will detect the symmetry automatically, and use the largest
 possible Abelian subgroup, the user might want to run in a lower point group.
 To do this the molecule keyword :samp:`symmetry {symbol}` can be used 
 (see :ref:`sec:moleculeKeywords`).  In most cases the standard
-Schönflies symbol (one of ``c1``, ``c2``, ``ci``, ``cs``, ``d2``,
+Sch\ |o_dots|\ nflies symbol (one of ``c1``, ``c2``, ``ci``, ``cs``, ``d2``,
 ``c2h``, ``c2v``, ``d2h`` will suffice for :samp:`{symbol}`.
 For certain computations, the user might want to specify which particular
 subgroup is to be used by appending a unique axis specifier.  For example when

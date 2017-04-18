@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2016 The Psi4 Developers.
+ * Copyright (c) 2007-2017 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -125,6 +125,7 @@ void x_oe_intermediates_rhf(struct RHO_Params rho_params);
 void x_te_intermediates_rhf(void);
 void x_xi_intermediates(void);
 void V_build(void);
+void V_cc2(void);
 void ex_tdensity(char hand, struct TD_Params S, struct TD_Params U);
 void ex_td_setup(struct TD_Params S, struct TD_Params U);
 void ex_td_cleanup();
@@ -239,10 +240,13 @@ PsiReturnType ccdensity(std::shared_ptr<Wavefunction> ref_wfn, Options& options)
 
       /* Compute intermediates for construction of ground-state twopdm */
       if ( (params.L_irr == params.G_irr) || (params.use_zeta) ) {
+         if (params.wfn == "CC2" && params.dertype == 1)
+             V_cc2();
+         else {
         V_build(); /* uses CC_GLG, writes tau2*L2 to CC_MISC */
         G_build(); /* uses CC_GLG, writes t2*L2 to CC_GLG */
-      }
-
+       }
+     }
       /* Compute ground-state twopdm or ground-state-like contributions to the excited twodpm */
       if ( (params.L_irr == params.G_irr) || (params.use_zeta) )
         twopdm();
@@ -263,7 +267,7 @@ PsiReturnType ccdensity(std::shared_ptr<Wavefunction> ref_wfn, Options& options)
         x_Gijab();
       }
     }
-
+ 
     sortone(rho_params[i]); /* puts full 1-pdm into moinfo.opdm */
     if (!params.onepdm) {
       if(!params.aobasis) energy(rho_params[i]);
@@ -413,9 +417,9 @@ PsiReturnType ccdensity(std::shared_ptr<Wavefunction> ref_wfn, Options& options)
       }
 
       //Get the NOs/occupation numbers
-      std::pair<SharedMatrix,SharedVector> NOa_pair = oe->Na_mo();
-      std::pair<SharedMatrix,SharedVector> NOb_pair = NOa_pair;
-      if(!ref_wfn->same_a_b_dens()){
+      std::pair<SharedMatrix, SharedVector> NOa_pair = oe->Na_mo();
+      std::pair<SharedMatrix, SharedVector> NOb_pair = NOa_pair;
+      if (!ref_wfn->same_a_b_dens()) {
         SharedMatrix cc_Db = oe->Db_so();
         SharedMatrix ref_Db = ref_wfn->Db();
         ref_Db->copy(cc_Db);
@@ -426,12 +430,14 @@ PsiReturnType ccdensity(std::shared_ptr<Wavefunction> ref_wfn, Options& options)
       if(params.write_nos){
         MoldenWriter nowriter(ref_wfn);
         std::string mol_name = ref_wfn->molecule()->name();
-        nowriter.writeNO(mol_name+"NO.molden",NOa_pair.first,NOb_pair.first,
-            NOa_pair.second,NOb_pair.second);
+        SharedMatrix NO_Ca = Matrix::doublet(Ca, NOa_pair.first, false, false);
+        SharedMatrix NO_Cb = Matrix::doublet(Cb, NOb_pair.first, false, false);
+        nowriter.write(mol_name + "NO.molden", NO_Ca, NO_Cb, NOa_pair.second, NOb_pair.second,
+                       NOa_pair.second, NOb_pair.second, options.get_bool("MOLDEN_WITH_VIRTUAL"));
       }
     }else{
       // this should set psivars correctly for root Properties
-      oe->set_title(cc_prop_label+" ROOT "+std::to_string(i));
+      oe->set_title(cc_prop_label + " ROOT " + std::to_string(i));
       oe->compute();
       /*- Process::environment.globals["CC ROOT n DIPOLE X"] -*/
       /*- Process::environment.globals["CC ROOT n DIPOLE Y"] -*/

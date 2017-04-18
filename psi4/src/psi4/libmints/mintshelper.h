@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2016 The Psi4 Developers.
+ * Copyright (c) 2007-2017 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -41,6 +41,8 @@ class CorrelationFactor;
 class TwoBodyAOInt;
 class PetiteList;
 class ThreeCenterOverlapInt;
+class OneBodyAOInt;
+class OneBodySOInt;
 
 /**
 * The MintsHelper object, places molecular integrals
@@ -57,10 +59,11 @@ private:
     std::shared_ptr<IntegralFactory> integral_;
     std::shared_ptr<BasisSet> basisset_;
     std::shared_ptr<SOBasisSet> sobasis_;
-    std::shared_ptr<ECPBasisSet> ecpbasis_;
+    std::shared_ptr<BasisSet> ecpbasis_;
     std::shared_ptr<TwoBodyAOInt> eriInts_;
     std::shared_ptr<BasisSet> rel_basisset_;
     int print_;
+    int nthread_;
 
     /// Value which any two-electron integral is below is discarded
     double cutoff_;
@@ -81,15 +84,17 @@ private:
 
     void common_init();
 
+    void one_body_ao_computer(std::vector<std::shared_ptr<OneBodyAOInt>> obv, SharedMatrix out, bool symm);
+
 public:
 
     void init_helper(std::shared_ptr<Wavefunction> wavefunction = std::shared_ptr<Wavefunction>());
-    void init_helper(std::shared_ptr<BasisSet> basis, std::shared_ptr<ECPBasisSet> ecpbasis = nullptr);
+    void init_helper(std::shared_ptr<BasisSet> basis, std::shared_ptr<BasisSet> ecpbasis = nullptr);
 
     /// Constructor, using basisset
     MintsHelper(std::shared_ptr<BasisSet> basis,
                 Options& options = Process::environment.options,
-                int print = 0,  std::shared_ptr<ECPBasisSet> ecpbasis = nullptr);
+                int print = 0,  std::shared_ptr<BasisSet> ecpbasis = nullptr);
 
     /// Constructor, using wavefunction
     MintsHelper(std::shared_ptr<Wavefunction> wavefunction);
@@ -105,6 +110,7 @@ public:
 
     /// Sets the print level
     void set_print(int print) {print_ = print; }
+    void set_nthread(int nthread) {nthread_ = nthread; }
 
     /// Returns petite list that is capable of transforming basis functions (nbf) to SO's.
     std::shared_ptr<PetiteList> petite_list() const;
@@ -122,7 +128,7 @@ public:
     /// SO basis set being used.
     std::shared_ptr<SOBasisSet> sobasisset() const;
     /// ECP basis set being used.
-    std::shared_ptr<ECPBasisSet> ecpbasisset() const;
+    std::shared_ptr<BasisSet> ecpbasisset() const;
     /// Matrix factory being used
     std::shared_ptr<MatrixFactory> factory() const;
     /// Integral factory being used
@@ -224,7 +230,7 @@ public:
     SharedMatrix ao_potential(std::shared_ptr<BasisSet>, std::shared_ptr<BasisSet>);
     /// AO ECP Integrals
     SharedMatrix ao_ecp();
-    SharedMatrix ao_ecp(std::shared_ptr<BasisSet>, std::shared_ptr<BasisSet>, std::shared_ptr<ECPBasisSet>);
+    SharedMatrix ao_ecp(std::shared_ptr<BasisSet>, std::shared_ptr<BasisSet>, std::shared_ptr<BasisSet>);
     /// AO pVp Integrals
     SharedMatrix ao_pvp();
     /// AO DKH Integrals

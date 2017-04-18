@@ -3,7 +3,7 @@
 #
 # Psi4: an open-source quantum chemistry software package
 #
-# Copyright (c) 2007-2016 The Psi4 Developers.
+# Copyright (c) 2007-2017 The Psi4 Developers.
 #
 # The copyrights for code used from other parties are included in
 # the corresponding files.
@@ -45,7 +45,7 @@ from .molecule import Molecule
 from .periodictable import *
 from .libmintsgshell import GaussianShell, ShellInfo
 from .libmintsbasissetparser import Gaussian94BasisSetParser
-from .basislist import corresponding_basis
+from .basislist import corresponding_basis, corresponding_zeta
 if sys.version_info >= (3,0):
     basestring = str
 
@@ -130,6 +130,8 @@ class BasisSet(object):
         self.uerd_coefficients = None
         # The flattened list of Cartesian coordinates for each atom
         self.xyz = None
+        # label/basis to number of core electrons mapping for ECPs
+        self.ecp_coreinfo = None
 
         # Divert to constructor functions
         if len(args) == 0:
@@ -225,6 +227,7 @@ class BasisSet(object):
         ucoefs = []
         uoriginal_coefs = []
         uerd_coefs = []
+        rpowers = []
         self.n_uprimitive = 0
 
         for symbolfirst, symbolsecond in shell_map.items():
@@ -239,6 +242,7 @@ class BasisSet(object):
                 for i in range(len(shells)):
                     shell = shells[i]
                     for prim in range(shell.nprimitive()):
+                        rpowers.append(shell.rpower(prim))
                         uexps.append(shell.exp(prim))
                         ucoefs.append(shell.coef(prim))
                         uoriginal_coefs.append(shell.original_coef(prim))
@@ -324,7 +328,7 @@ class BasisSet(object):
                     self.uerd_coefficients[tst:tsp],
                     self.uexponents[tst:tsp],
                     'Pure' if self.puream else 'Cartesian',
-                    n, xyz_ptr, bf_count)
+                    n, xyz_ptr, bf_count, rpowers[tst:tsp])
                 for thisbf in range(thisshell.nfunction()):
                     self.function_to_shell[bf_count] = shell_count
                     self.function_center[bf_count] = n
@@ -558,7 +562,7 @@ class BasisSet(object):
 #TRIAL#            return bsdict
 
     @staticmethod
-    def pyconstruct(mol, key, target, fitrole='BASIS', other=None, return_atomlist=False):
+    def pyconstruct(mol, key, target, fitrole='ORBITAL', other=None, return_atomlist=False):
         """Builds a BasisSet object for *mol* (either a qcdb.Molecule or
         a string that can be instantiated into one) from basis set
         specifications passed in as python functions or as a string that
@@ -578,8 +582,7 @@ class BasisSet(object):
         ``pyconstruct(mol, "DF_BASIS_MP2", "", "RIFIT", "6-31+G(d,p)")``
 
         """
-        #print(type(mol), type(key), type(target), type(fitrole), type(other))
-        orbonly = True if (fitrole == 'BASIS' and other is None) else False
+        orbonly = True if (fitrole == 'ORBITAL' and other is None) else False
         if orbonly:
             orb = target
             aux = None
@@ -609,67 +612,85 @@ class BasisSet(object):
             raise ValidationError("""Orbital basis argument must not be empty.""")
         elif callable(orb):
             basstrings['BASIS'] = orb(mol, 'BASIS')
+            callby = orb.__name__.replace('basisspec_psi4_yo__', '')
+        elif orb in basishorde:
+            basstrings['BASIS'] = basishorde[orb](mol, 'BASIS')
+            callby = orb
         elif isinstance(orb, basestring):
             mol.set_basis_all_atoms(orb, role='BASIS')
+            callby = orb
         else:
             raise ValidationError("""Orbital basis argument must be function that applies basis sets to Molecule or a string of the basis to be applied to all atoms.""")
 
-        if aux is None or aux == '':
-            pass
-        elif callable(aux):
-            basstrings[fitrole] = aux(mol, fitrole)
-        elif isinstance(aux, basestring):
-            mol.set_basis_all_atoms(aux, role=fitrole)
-        else:
-            raise ValidationError("""Auxiliary basis argument must be function that applies basis sets to Molecule or a string of the basis to be applied to all atoms.""")
+        if not orbonly:
+            if aux is None or aux == '':
+                callby = '({} Aux)'.format(callby)
+            elif callable(aux):
+                basstrings[fitrole] = aux(mol, fitrole)
+                callby = aux.__name__.replace('basisspec_psi4_yo__', '')
+            elif isinstance(aux, basestring):
+                mol.set_basis_all_atoms(aux, role=fitrole)
+                callby = aux
+            else:
+                raise ValidationError("""Auxiliary basis argument must be function that applies basis sets to Molecule or a string of the basis to be applied to all atoms.""")
 
         # Not like we're ever using a non-G94 format
         parser = Gaussian94BasisSetParser()
 
         # Molecule and parser prepped, call the constructor
-        bs, msg = BasisSet.construct(parser, mol, fitrole, None if fitrole == 'BASIS' else fitrole, basstrings[fitrole],
-                                     return_atomlist=return_atomlist)
-#        mol.update_geometry()
+        bs, msg, ecp = BasisSet.construct(parser, mol,
+                                          'BASIS' if fitrole == 'ORBITAL' else fitrole,
+                                          None if fitrole == 'ORBITAL' else fitrole,
+                                          basstrings['BASIS'] if fitrole == 'ORBITAL' else basstrings[fitrole],
+                                          return_atomlist=return_atomlist)
 
         text = """   => Loading Basis Set <=\n\n"""
+        text += """    Name: %s\n""" % (callby.upper())
         text += """    Role: %s\n""" % (fitrole)
         text += """    Keyword: %s\n""" % (key)
-        text += """    Name: %s\n""" % (target)
         text += msg
 
         if return_atomlist:
             if returnBasisSet:
-                return bs
+                return bs, ecp
             else:
                 atom_basis_list = []
                 for atbs in bs:
                     bsdict = {}
                     bsdict['message'] = text
-                    bsdict['name'] = atbs.name
+                    bsdict['key'] = key
+                    bsdict['name'] = callby.upper()
+                    bsdict['blend'] = atbs.name.upper()
                     bsdict['puream'] = int(atbs.has_puream())
-                    bsdict['shell_map'] = atbs.export_for_libmints(fitrole)
+                    bsdict['shell_map'] = atbs.export_for_libmints('BASIS' if fitrole == 'ORBITAL' else fitrole)
+                    if ecp:
+                        bsdict['ecp_shell_map'] = ecp.export_for_libmints2('BASIS')
                     bsdict['molecule'] = atbs.molecule.create_psi4_string_from_molecule(force_c1=True)
                     atom_basis_list.append(bsdict)
                 return atom_basis_list
 
         if returnBasisSet:
             #print(text)
-            return bs
+            return bs, ecp
         else:
             bsdict = {}
             bsdict['message'] = text
-            bsdict['name'] = bs.name
+            bsdict['key'] = key
+            bsdict['name'] = callby.upper()
+            bsdict['blend'] = bs.name.upper()
             bsdict['puream'] = int(bs.has_puream())
-            bsdict['shell_map'] = bs.export_for_libmints(fitrole)
+            bsdict['shell_map'] = bs.export_for_libmints('BASIS' if fitrole == 'ORBITAL' else fitrole)
+            if ecp:
+                bsdict['ecp_shell_map'] = ecp.export_for_libmints2('BASIS')
             return bsdict
 
     @classmethod
-    def construct(cls, parser, mol, role, deffit=None, basstrings=None, return_atomlist=False):
+    def construct(cls, parser, mol, key, deffit=None, basstrings=None, return_atomlist=False):
         """Returns a new BasisSet object configured from the *mol*
-        Molecule object for *role* (generally a Psi4 keyword: BASIS,
+        Molecule object for *key* (generally a Psi4 keyword: BASIS,
         DF_BASIS_SCF, etc.). Fails utterly if a basis has not been set for
-        *role* for every atom in *mol*, unless *deffit* is set (JFIT,
-        JKFIT, or RIFIT), whereupon empty atoms are assigned to *role*
+        *key* for every atom in *mol*, unless *deffit* is set (JFIT,
+        JKFIT, or RIFIT), whereupon empty atoms are assigned to *key*
         from the :py:class:`~BasisFamily`. This function is significantly
         re-worked from its libmints analog.
 
@@ -685,7 +706,8 @@ class BasisSet(object):
             ':' + ':'.join([os.path.abspath(x) for x in os.environ.get('PSIPATH', '').split(':')]) + \
             libraryPath
 
-        # Validate deffit for role
+        # Validate deffit for key
+        univdef_zeta = 4
         univdef = {'JFIT': ('def2-qzvpp-jfit', 'def2-qzvpp-jfit', None),
                    'JKFIT': ('def2-qzvpp-jkfit', 'def2-qzvpp-jkfit', None),
                    'RIFIT': ('def2-qzvpp-ri', 'def2-qzvpp-ri', None),
@@ -698,8 +720,11 @@ class BasisSet(object):
 
         # Map of GaussianShells
         atom_basis_shell = OrderedDict()
+        ecp_atom_basis_shell = OrderedDict()
+        ecp_atom_basis_ncore = OrderedDict()
         names = {}
         summary = []
+        bastitles = []
 
         for at in range(mol.natom()):
             symbol = mol.atom_entry(at).symbol()  # O, He
@@ -708,15 +733,17 @@ class BasisSet(object):
 
             if label not in atom_basis_shell:
                 atom_basis_shell[label] = OrderedDict()
+            if label not in ecp_atom_basis_shell:
+                ecp_atom_basis_shell[label] = OrderedDict()
 
             # Establish search parameters for what/where basis entries suitable for atom
             seek = {}
             try:
-                requested_basname = basdict[role]
+                requested_basname = basdict[key]
             except KeyError:
-                if role == 'BASIS' or deffit is None:
+                if key == 'BASIS' or deffit is None:
                     raise BasisSetNotDefined("""BasisSet::construct: No basis set specified for %s and %s.""" %
-                        (symbol, role))
+                        (symbol, key))
                 else:
                     # No auxiliary basis set for atom, so try darnedest to find one.
                     #   This involves querying the BasisFamily for default and
@@ -726,7 +753,9 @@ class BasisSet(object):
                     tmp = []
                     tmp.append(corresponding_basis(basdict['BASIS'], deffit))
                     #NYI#tmp.append(corresponding_basis(basdict['BASIS'], deffit + '-DEFAULT'))
-                    tmp.append(univdef[deffit])
+                    orbital_zeta = corresponding_zeta(basdict['BASIS'])
+                    if orbital_zeta is None or orbital_zeta <= univdef_zeta:
+                        tmp.append(univdef[deffit])
                     seek['basis'] = [item for item in tmp if item != (None, None, None)]
                     seek['entry'] = [symbol]
                     seek['path'] = libraryPath
@@ -773,7 +802,7 @@ class BasisSet(object):
                 for entry in seek['entry']:
 
                     # Seek entry in lines, else skip to next entry
-                    shells, msg = parser.parse(entry, lines)
+                    shells, msg, ecp_shells, ecp_msg, ecp_ncore = parser.parse(entry, lines)
                     if shells is None:
                         continue
 
@@ -786,8 +815,15 @@ class BasisSet(object):
                         fmsg = ''
                     # -- Assign to Molecule
                     atom_basis_shell[label][bastitle] = shells
-                    mol.set_basis_by_number(at, bastitle, role=role)
-                    summary.append("""entry %-10s %s %s %s""" % (entry, msg, index, fmsg))
+                    ecp_atom_basis_shell[label][bastitle] = ecp_shells
+                    if key == 'BASIS':
+                        ecp_atom_basis_ncore[label] = ecp_ncore
+                    mol.set_basis_by_number(at, bastitle, role=key)
+                    bastitles.append(bastitle.upper())
+                    if ecp_msg:
+                        summary.append("""entry %-10s %s (ECP: %s) %s %s""" % (entry, msg, ecp_msg, index, fmsg))
+                    else:
+                        summary.append("""entry %-10s %s %s %s""" % (entry, msg, index, fmsg))
                     break
 
                 # Break from outer loop if inner loop breaks
@@ -801,11 +837,15 @@ class BasisSet(object):
                 text2 += """  Basis Sets: %s\n""" % (seek['basis'])
                 text2 += """  File Path: %s\n""" % (', '.join(map(str, seek['path'].split(':'))))
                 text2 += """  Input Blocks: %s\n""" % (', '.join(seek['strings']))
-                raise BasisSetNotFound('BasisSet::construct: Unable to find a basis set for atom %d for role %s among:\n%s' % \
-                    (at + 1, role, text2))
+                raise BasisSetNotFound('BasisSet::construct: Unable to find a basis set for atom %d for key %s among:\n%s' % \
+                    (at + 1, key, text2))
 
         # Construct the grand BasisSet for mol
-        basisset = BasisSet(role, mol, atom_basis_shell)
+        basisset = BasisSet(key, mol, atom_basis_shell)
+        ecpbasisset = None
+        if ecp_atom_basis_shell and key == 'BASIS':
+            ecpbasisset = BasisSet(key, mol, ecp_atom_basis_shell)
+            ecpbasisset.ecp_coreinfo = ecp_atom_basis_ncore
 
         # Construct all the one-atom BasisSet-s for mol's CoordEntry-s
         atom_basis_list = []
@@ -813,13 +853,15 @@ class BasisSet(object):
             oneatombasis = BasisSet(basisset, at)
             oneatombasishash = hashlib.sha1(oneatombasis.print_detail(numbersonly=True).encode('utf-8')).hexdigest()
             if return_atomlist:
-                oneatombasis.molecule.set_shell_by_number(0, oneatombasishash, role=role)
+                oneatombasis.molecule.set_shell_by_number(0, oneatombasishash, role=key)
                 atom_basis_list.append(oneatombasis)
-            mol.set_shell_by_number(at, oneatombasishash, role=role)
+            mol.set_shell_by_number(at, oneatombasishash, role=key)
+
         mol.update_geometry()  # re-evaluate symmetry taking basissets into account
 
-#TODO fix name
-        basisset.name = ' + '.join(names)
+        bastitles = list(set(bastitles))
+        bastitles.sort()
+        basisset.name = ' + '.join(bastitles)
 
         # Summary printing
         tmp = defaultdict(list)
@@ -834,17 +876,15 @@ class BasisSet(object):
                     sats = ", ".join("-".join(map(str, (g[0], g[-1])[:len(g)])) for g in G)
                     maxsats = max(maxsats, len(sats))
                     tmp2[sats] = msg
-        #text = """  ==> Loading Basis Set <==\n\n"""
-        #text += """  Role: %s\n""" % (role)
-        #text += """  Basis Set: %s\n""" % (basisset.name)
         text = ''
         for ats, msg in tmp2.items():
             text += """    atoms %s %s\n""" % (ats.ljust(maxsats), msg)
+        text += '\n'
 
         if return_atomlist:
-            return atom_basis_list, text
+            return atom_basis_list, text, None
         else:
-            return basisset, text
+            return basisset, text, ecpbasisset
 
     # <<< Simple Methods for Basic BasisSet Information >>>
 
@@ -1125,12 +1165,43 @@ class BasisSet(object):
             with open(out, mode='w') as handle:
                 handle.write(text)
 
+    def export_for_libmints2(self, role):
+        """From complete BasisSet object, returns array where
+        triplets of elements are each unique atom label, the hash
+        of the string shells entry in gbs format and the
+        shells entry in gbs format for that label. This packaging is
+        intended for return to libmints BasisSet::construct_from_pydict for
+        instantiation of a libmints BasisSet clone of *self*.
+
+        ACS 04/17 - I plan to replace the export_for_libmints function with something
+        like this.  I don't think the extra parsing of the string on the C++ side is
+        a very intuitive design.  With a pre-parsed list like this, we can remove all
+        C++ parsing utilities and make the code much cleaner.
+        """
+        info = []
+        for A in range(self.molecule.natom()):
+            label = self.molecule.label(A)
+            first_shell = self.center_to_shell[A]
+            n_shell = self.center_to_nshell[A]
+
+            atominfo = [label]
+            atominfo.append(self.molecule.atoms[A].shell(key=role))
+            try:
+               atominfo.append(self.ecp_coreinfo[label])
+            except KeyError:
+                raise ValidationError("Problem with number of cores in ECP constuction!")
+            for Q in range(n_shell):
+                atominfo.append(self.shells[Q + first_shell].aslist())
+            info.append(atominfo)
+        return info
+
+
     def export_for_libmints(self, role):
         """From complete BasisSet object, returns array where
         triplets of elements are each unique atom label, the hash
         of the string shells entry in gbs format and the
         shells entry in gbs format for that label. This packaging is
-        intended for return to libmints BasisSet::pyconstruct for
+        intended for return to libmints BasisSet::construct_from_pydict for
         instantiation of a libmints BasisSet clone of *self*.
 
         """

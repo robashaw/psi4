@@ -3,7 +3,7 @@
 .. #
 .. # Psi4: an open-source quantum chemistry software package
 .. #
-.. # Copyright (c) 2007-2016 The Psi4 Developers.
+.. # Copyright (c) 2007-2017 The Psi4 Developers.
 .. #
 .. # The copyrights for code used from other parties are included in
 .. # the corresponding files.
@@ -78,8 +78,14 @@ input file for MRCC for the methods listed in table below.
 To utilize any method described in the table, you must prefix
 the method name with ``MR``. For other methods, you will be required to
 use the MRCC keywords described in Appendix :ref:`apdx:mrcc`.
-Note that perturbative methods (``ccsd(t)``, ``ccsdtqp(h)_l``, etc.)
-are not available with |scf__reference| ROHF.
+Perturbative methods (``ccsd(t)``, ``ccsdtqp(h)_l``, etc.)
+are available with |scf__reference| ROHF in versions of MRCC published
+at least after July 1, 2014.
+
+When using ROHF-CCSDT(Q), MRCC will compute and report two variants:
+CCSDT(Q)/A and CCSDT(Q)/B.[Kallay:2008:144101]_ Psi4 will save both energies but will use
+the CCSDT(Q)/B as the CCSDT(Q) energy. CCSDT(Q)/B has been found to be
+more robust by Martin.[Martin:2014:785]_
 
 .. include:: mrcc_table_energy.rst
 

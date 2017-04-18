@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2016 The Psi4 Developers.
+ * Copyright (c) 2007-2017 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -49,6 +49,11 @@
 #include "psi4/libmints/basisset.h"
 #include "psi4/libmints/ecp.h"
 #include "psi4/libmints/erd_eri.h"
+
+#ifdef USING_simint
+#include "psi4/libmints/siminteri.h"
+#endif
+
 #include <libint/libint.h>
 
 ;
@@ -58,20 +63,30 @@ IntegralFactory::IntegralFactory(std::shared_ptr<BasisSet> bs1,
                                  std::shared_ptr<BasisSet> bs2,
                                  std::shared_ptr<BasisSet> bs3,
                                  std::shared_ptr<BasisSet> bs4,
-								  std::shared_ptr<ECPBasisSet> bsecp)
+                                 std::shared_ptr<BasisSet> bsecp)
 {
     set_basis(bs1, bs2, bs3, bs4, bsecp);
 }
-
-IntegralFactory::IntegralFactory(std::shared_ptr<BasisSet> bs1, std::shared_ptr<BasisSet> bs2,
-	 std::shared_ptr<ECPBasisSet> bsecp)
+IntegralFactory::IntegralFactory(std::shared_ptr<BasisSet> bs1,
+                                 std::shared_ptr<BasisSet> bs2,
+                                 std::shared_ptr<BasisSet> bs3,
+                                 std::shared_ptr<BasisSet> bs4):
+    bs_ecp_(nullptr)
 {
-    set_basis(bs1, bs2, bs1, bs2, bsecp);
+
+    set_basis(bs1, bs2, bs3, bs4, bs_ecp_);
 }
 
-IntegralFactory::IntegralFactory(std::shared_ptr<BasisSet> bs1, std::shared_ptr<ECPBasisSet> bsecp)
+
+IntegralFactory::IntegralFactory(std::shared_ptr<BasisSet> bs1, std::shared_ptr<BasisSet> bsecp)
 {
     set_basis(bs1, bs1, bs1, bs1, bsecp);
+}
+
+IntegralFactory::IntegralFactory(std::shared_ptr<BasisSet> bs1):
+    bs_ecp_(nullptr)
+{
+    set_basis(bs1, bs1, bs1, bs1, bs_ecp_);
 }
 
 IntegralFactory::~IntegralFactory()
@@ -99,7 +114,7 @@ std::shared_ptr<BasisSet> IntegralFactory::basis4() const
     return bs4_;
 }
 
-std::shared_ptr<ECPBasisSet> IntegralFactory::basisECP() const
+std::shared_ptr<BasisSet> IntegralFactory::basisECP() const
 {
 	return bs_ecp_;
 }
@@ -110,7 +125,7 @@ bool IntegralFactory::hasECP() const
 }
 
 void IntegralFactory::set_basis(std::shared_ptr<BasisSet> bs1, std::shared_ptr<BasisSet> bs2,
-                std::shared_ptr<BasisSet> bs3, std::shared_ptr<BasisSet> bs4, std::shared_ptr<ECPBasisSet> bsecp)
+                std::shared_ptr<BasisSet> bs3, std::shared_ptr<BasisSet> bs4, std::shared_ptr<BasisSet> bsecp)
 {
     bs1_ = bs1;
     bs2_ = bs2;
@@ -287,16 +302,22 @@ OneBodyAOInt* IntegralFactory::electric_field()
 
 TwoBodyAOInt* IntegralFactory::erd_eri(int deriv, bool use_shell_pairs)
 {
-#ifdef USING_erd
+#ifdef USING_simint
+    if(deriv == 0 && Process::environment.options.get_str("INTEGRAL_PACKAGE") == "SIMINT")
+        return new SimintERI(this, deriv, use_shell_pairs);
+#elif defined USING_erd
     if(deriv == 0 && Process::environment.options.get_str("INTEGRAL_PACKAGE") == "ERD")
         return new ERDERI(this, deriv, use_shell_pairs);
 #endif
-    return new ERI(this, deriv, use_shell_pairs);
+    return eri(deriv, use_shell_pairs);
 }
 
 TwoBodyAOInt* IntegralFactory::eri(int deriv, bool use_shell_pairs)
 {
-#ifdef USING_erd
+#ifdef USING_simint
+    if(deriv == 0 && Process::environment.options.get_str("INTEGRAL_PACKAGE") == "SIMINT")
+        return new SimintERI(this, deriv, use_shell_pairs);
+#elif defined USING_erd
     if(deriv == 0 && Process::environment.options.get_str("INTEGRAL_PACKAGE") == "ERD")
         return new ERDERI(this, deriv, use_shell_pairs);
 #endif

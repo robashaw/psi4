@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2016 The Psi4 Developers.
+ * Copyright (c) 2007-2017 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -44,8 +44,6 @@ protected:
 
     // Auxiliary basis
     std::shared_ptr<BasisSet> ribasis_;
-    // Energy map
-    std::map<std::string, double> energies_;
     // Gradients map
     std::map<std::string, SharedMatrix> gradients_;
 

@@ -3,7 +3,7 @@
 .. #
 .. # Psi4: an open-source quantum chemistry software package
 .. #
-.. # Copyright (c) 2007-2016 The Psi4 Developers.
+.. # Copyright (c) 2007-2017 The Psi4 Developers.
 .. #
 .. # The copyrights for code used from other parties are included in
 .. # the corresponding files.
@@ -29,8 +29,8 @@
 
 .. _`sec:conda`:
 
-Binary Distribution
-===================
+Conda Binary Distribution
+=========================
 
 |PSIfour| is available as a pre-compiled binary for Linux and Mac architectures
 through `Continuum Analytics
@@ -137,14 +137,14 @@ will be available for download.
 .. code-block:: bash
 
     # Linux
-    >>> curl -O explicit-latest.sh "https://repo.continuum.io/miniconda/explicit2-latest-Linux-x86_64.txt"
+    >>> curl -o explicit-latest.sh "https://repo.continuum.io/miniconda/explicit2-latest-Linux-x86_64.txt"
     >>> conda create --name p4env --file explicitenv2-latest-Linux-x86_64.txt
     >>> source activate p4env
 
 .. code-block:: bash
 
     # Mac
-    >>> curl -O explicit-latest.sh "https://repo.continuum.io/miniconda/explicit2-latest-MacOSX-x86_64.txt"
+    >>> curl -o explicit-latest.sh "https://repo.continuum.io/miniconda/explicit2-latest-MacOSX-x86_64.txt"
     >>> conda create --name p4env --file explicitenv2-latest-MacOSX-x86_64.txt
     >>> source activate p4env
 
@@ -160,8 +160,8 @@ main conda environment at ``$HOME/miniconda/bin/psi4``.
 .. code-block:: bash
 
     # Linux or Mac: select between next two lines
-    >>> curl -O Miniconda-latest.sh "https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh"
-    >>> curl -O Miniconda-latest.sh "https://repo.continuum.io/miniconda/Miniconda2-latest-MacOSX-x86_64.sh"
+    >>> curl -o Miniconda-latest.sh "https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh"
+    >>> curl -o Miniconda-latest.sh "https://repo.continuum.io/miniconda/Miniconda2-latest-MacOSX-x86_64.sh"
 
 .. code-block:: bash
 
@@ -359,7 +359,7 @@ Useful Commands
 Troubleshooting
 ^^^^^^^^^^^^^^^
 
-* If the target computer doesn't have libc >= 2.7 (released c.2007; for reference, 2.10 is newer than 2.7; unlike most libraries, libc generally not available in multiple versions on a computer), the |PSIfour| conda package won’t work. ::
+* If the target computer doesn't have libc >= 2.7 (released c.2007; for reference, 2.10 is newer than 2.7; unlike most libraries, libc generally not available in multiple versions on a computer), the |PSIfour| conda package won't work. ::
 
     # unsuitable computer
     >>> ldd --version
@@ -396,6 +396,6 @@ Troubleshooting
 .. comment find out about the current environment.
 .. comment pythonhome should be empty
 .. comment pythonpath should be empty or set to non-interfering packages (*e.g.*, qcdb)
-.. comment ld_library_path shouldn’t contain anything with a libpython
+.. comment ld_library_path shouldn't contain anything with a libpython
 .. comment >>> conda info -a
 

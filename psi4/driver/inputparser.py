@@ -3,7 +3,7 @@
 #
 # Psi4: an open-source quantum chemistry software package
 #
-# Copyright (c) 2007-2016 The Psi4 Developers.
+# Copyright (c) 2007-2017 The Psi4 Developers.
 #
 # The copyrights for code used from other parties are included in
 # the corresponding files.
@@ -39,11 +39,14 @@ from __future__ import absolute_import
 import re
 import os
 import sys
-import random
+import uuid
 from psi4.driver import pubchem
 from psi4.driver.p4util.exceptions import *
+from psi4.driver.p4util.util import set_memory
 from psi4 import core
 
+# globally available regex strings
+pubchemre = re.compile(r'^(\s*pubchem\s*:\s*(.*)\n)$', re.MULTILINE | re.IGNORECASE)
 
 # inputfile contents to be preserved from the processor
 literals = {}
@@ -230,11 +233,18 @@ def process_molecule_command(matchobj):
     spaces = matchobj.group(1)
     name = matchobj.group(2)
     geometry = matchobj.group(3)
-    pubchemre = re.compile(r'^(\s*pubchem\s*:\s*(.*)\n)$', re.MULTILINE | re.IGNORECASE)
     geometry = pubchemre.sub(process_pubchem_command, geometry)
     from_filere = re.compile(r'^(\s*from_file\s*:\s*(.*)\n)$', re.MULTILINE | re.IGNORECASE)
     geometry = from_filere.sub(process_from_file_command,geometry)
     molecule = spaces
+
+    if name != "":
+        if sys.version_info >= (3, 0):
+            if not name.isidentifier():
+                raise ValidationError('Molecule name not valid Python identifier: ' + name)
+        else:
+            if not re.match(r'^[^\d\W]\w*\Z', name):
+                raise ValidationError('Molecule name not valid Python identifier: ' + name)
 
     molecule += 'core.efp_init()\n'  # clear EFP object before Molecule read in
     molecule += spaces
@@ -263,7 +273,7 @@ def process_cfour_command(matchobj):
     name = matchobj.group(2)
     cfourblock = matchobj.group(3)
 
-    literalkey = str(random.randint(0, 99999))
+    literalkey = str(uuid.uuid4())[:8]
     literals[literalkey] = cfourblock
     return "%score.set_global_option(\"%s\", \"\"\"%s\n\"\"\")\n" % \
         (spaces, 'LITERAL_CFOUR', 'literals_psi4_yo-' + literalkey)
@@ -298,17 +308,9 @@ def process_memory_command(matchobj):
     sig = str(matchobj.group(2))
     units = str(matchobj.group(3))
 
-    val = float(sig)
-    memory_amount = val
+    mem_in_bytes = set_memory(sig + units, execute=False)
 
-    if units.upper() == 'KB':
-        memory_amount = val * 1000
-    elif units.upper() == 'MB':
-        memory_amount = val * 1000000
-    elif units.upper() == 'GB':
-        memory_amount = val * 1000000000
-
-    return "%score.set_memory(%d)\n" % (spaces, int(memory_amount))
+    return "%score.set_memory_bytes(%d)\n" % (spaces, mem_in_bytes)
 
 
 def basname(name):
@@ -321,7 +323,7 @@ def process_basis_block(matchobj):
     spaces = matchobj.group(1)
     basistype = matchobj.group(2).upper()
     name = matchobj.group(3)
-    name = ('anonymous' + str(random.randint(0, 999))) if name == '' else name
+    name = ('anonymous' + str(uuid.uuid4())[:8]) if name == '' else name
     cleanbas = basname(name).replace('-', '')  # further remove hyphens so can be function name
     command_lines = re.split('\n', matchobj.group(4))
 
@@ -385,12 +387,18 @@ def process_pcm_command(matchobj):
     """Function to process match of ``pcm name? { ... }``."""
     spacing = str(matchobj.group(1)) # Ignore..
     name = str(matchobj.group(2)) # Ignore..
-    block = str(matchobj.group(3))
-    fp = open('pcmsolver.inp', 'w')
-    fp.write(block)
-    fp.close()
-    import pcm_placeholder
-    sys.path.append(pcm_placeholder.PCMSolver_PARSE_DIR)
+    block = str(matchobj.group(3)) # Get input to PCMSolver
+    # Setup unique scratch directory and move in, as done for other add-ons
+    psioh = core.IOManager.shared_object()
+    psio = core.IO.shared_object()
+    os.chdir(psioh.get_default_path())
+    pcm_tmpdir = 'psi.' + str(os.getpid()) + '.' + psio.get_default_namespace() + \
+        'pcmsolver.' + str(uuid.uuid4())[:8]
+    if os.path.exists(pcm_tmpdir) is False:
+        os.mkdir(pcm_tmpdir)
+    os.chdir(pcm_tmpdir)
+    with open('pcmsolver.inp', 'w') as handle:
+        handle.write(block)
     import pcmsolver
     pcmsolver.parse_pcm_input('pcmsolver.inp')
     return "" # The file has been written to disk; nothing needed in Psi4 input
@@ -710,7 +718,7 @@ def process_input(raw_input, print_level=1):
     temp = re.sub(set_command, process_set_command, temp)
 
     # Process "molecule name? { ... }"
-    molecule = re.compile(r'^(\s*?)molecule[=\s]*(\w*?)\s*\{(.*?)\}',
+    molecule = re.compile(r'^(\s*?)molecule[=\s]*(\S*?)\s*\{(.*?)\}',
                           re.MULTILINE | re.DOTALL | re.IGNORECASE)
     temp = re.sub(molecule, process_molecule_command, temp)
 
@@ -738,7 +746,7 @@ def process_input(raw_input, print_level=1):
     #temp = re.sub(print_string, process_print_command, temp)
 
     # Process "memory ... "
-    memory_string = re.compile(r'(\s*?)memory\s+([+-]?\d*\.?\d+)\s+([KMG]i?B)',
+    memory_string = re.compile(r'(\s*?)memory\s+(\d*\.?\d+)\s*([KMGTPBE]i?B)',
                                re.IGNORECASE)
     temp = re.sub(memory_string, process_memory_command, temp)
 
@@ -770,7 +778,7 @@ def process_input(raw_input, print_level=1):
     imports += 'from psi4.driver.driver_cbs import xtpl_highest_1, scf_xtpl_helgaker_2, scf_xtpl_helgaker_3, corl_xtpl_helgaker_2\n'
     imports += 'from psi4.driver.wrapper_database import database, db, DB_RGT, DB_RXN\n'
     imports += 'from psi4.driver.wrapper_autofrag import auto_fragments\n'
-    imports += 'from psi4.driver.p4const.physconst import *\n'
+    imports += 'from psi4.driver.constants.physconst import *\n'
     imports += 'psi4_io = core.IOManager.shared_object()\n'
 
     # psirc (a baby PSIthon script that might live in ~/.psi4rc)
@@ -798,6 +806,12 @@ def process_input(raw_input, print_level=1):
     # Move up the psi4.core namespace
     for func in dir(core):
         temp = temp.replace("psi4." + func, "psi4.core." + func)
+
+    # Move pseudonamespace for physconst into proper namespace
+    from psi4.driver.p4util import constants
+    for pc in dir(constants.physconst):
+        if not pc.startswith('__'):
+            temp = temp.replace('psi_' + pc, 'psi4.constants.' + pc)
 
     return temp
 

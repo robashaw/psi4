@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2016 The Psi4 Developers.
+ * Copyright (c) 2007-2017 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -27,6 +27,7 @@
 
 #include "mp2.h"
 #include "corr_grad.h"
+#include "psi4/liboptions/liboptions_python.h"
 #include "psi4/lib3index/3index.h"
 #include "psi4/libmints/basisset.h"
 #include "psi4/libmints/matrix.h"
@@ -40,6 +41,7 @@
 #include "psi4/psi4-dec.h"
 #include "psi4/physconst.h"
 #include "psi4/psifiles.h"
+#include "psi4/libmints/extern.h"
 #include "psi4/libmints/twobody.h"
 #include "psi4/libmints/integral.h"
 #include "psi4/libmints/oeprop.h"
@@ -175,10 +177,10 @@ void DFMP2::common_init()
     //copy(reference_wavefunction_);
     name_ = "DF-MP2";
 
-    energies_["Singles Energy"] = 0.0;
-    energies_["Opposite-Spin Energy"] = 0.0;
-    energies_["Same-Spin Energy"] = 0.0;
-    energies_["Reference Energy"] = reference_wavefunction_->reference_energy();
+    variables_["MP2 SINGLES ENERGY"] = 0.0;
+    variables_["MP2 OPPOSITE-SPIN CORRELATION ENERGY"] = 0.0;
+    variables_["MP2 SAME-SPIN CORRELATION ENERGY"] = 0.0;
+    variables_["SCF TOTAL ENERGY"] = reference_wavefunction_->reference_energy();
 
     sss_ = options_.get_double("MP2_SS_SCALE");
     oss_ = options_.get_double("MP2_OS_SCALE");
@@ -221,7 +223,7 @@ double DFMP2::compute_energy()
     timer_off("DFMP2 Energy");
     print_energies();
 
-    return energies_["Total Energy"];
+    return variables_["MP2 TOTAL ENERGY"];
 }
 SharedMatrix DFMP2::compute_gradient()
 {
@@ -395,7 +397,7 @@ void DFMP2::form_singles()
 
     delete[] temp;
 
-    energies_["Singles Energy"] = E_singles_a + E_singles_b;
+    variables_["MP2 SINGLES ENERGY"] = E_singles_a + E_singles_b;
 
     if (debug_) {
         Caocc_a->print();
@@ -757,45 +759,51 @@ void DFMP2::apply_B_transpose(unsigned int file, ULI naux, ULI naocc, ULI navir)
 }
 void DFMP2::print_energies()
 {
-    energies_["Correlation Energy"] = energies_["Opposite-Spin Energy"] + energies_["Same-Spin Energy"] + energies_["Singles Energy"];
-    energies_["Total Energy"] = energies_["Reference Energy"] + energies_["Correlation Energy"];
+    variables_["MP2 CORRELATION ENERGY"] = variables_["MP2 OPPOSITE-SPIN CORRELATION ENERGY"] +
+                                           variables_["MP2 SAME-SPIN CORRELATION ENERGY"] +
+                                           variables_["MP2 SINGLES ENERGY"];
+    variables_["MP2 TOTAL ENERGY"] = variables_["SCF TOTAL ENERGY"] +
+                                     variables_["MP2 CORRELATION ENERGY"];
 
-    energies_["SCS Opposite-Spin Energy"] = oss_*energies_["Opposite-Spin Energy"];
-    energies_["SCS Same-Spin Energy"] = sss_*energies_["Same-Spin Energy"];
-    energies_["SCS Correlation Energy"] = energies_["SCS Opposite-Spin Energy"] + energies_["SCS Same-Spin Energy"] + energies_["Singles Energy"];
-    energies_["SCS Total Energy"] = energies_["Reference Energy"] + energies_["SCS Correlation Energy"];
+    variables_["SCS-MP2 OPPOSITE-SPIN CORRELATION ENERGY"] = oss_*variables_["MP2 OPPOSITE-SPIN CORRELATION ENERGY"];
+    variables_["SCS-MP2 SAME-SPIN CORRELATION ENERGY"] = sss_*variables_["MP2 SAME-SPIN CORRELATION ENERGY"];
+    variables_["SCS-MP2 CORRELATION ENERGY"] = variables_["SCS-MP2 OPPOSITE-SPIN CORRELATION ENERGY"] +
+                                               variables_["SCS-MP2 SAME-SPIN CORRELATION ENERGY"] +
+                                               variables_["MP2 SINGLES ENERGY"];
+    variables_["SCS-MP2 TOTAL ENERGY"] = variables_["SCF TOTAL ENERGY"] +
+                                         variables_["SCS-MP2 CORRELATION ENERGY"];
 
     outfile->Printf( "\t-----------------------------------------------------------\n");
     outfile->Printf( "\t ==================> DF-MP2 Energies <==================== \n");
     outfile->Printf( "\t-----------------------------------------------------------\n");
-    outfile->Printf( "\t %-25s = %24.16f [Eh]\n", "Reference Energy",         energies_["Reference Energy"]);
-    outfile->Printf( "\t %-25s = %24.16f [Eh]\n", "Singles Energy",           energies_["Singles Energy"]);
-    outfile->Printf( "\t %-25s = %24.16f [Eh]\n", "Same-Spin Energy",         energies_["Same-Spin Energy"]);
-    outfile->Printf( "\t %-25s = %24.16f [Eh]\n", "Opposite-Spin Energy",     energies_["Opposite-Spin Energy"]);
-    outfile->Printf( "\t %-25s = %24.16f [Eh]\n", "Correlation Energy",       energies_["Correlation Energy"]);
-    outfile->Printf( "\t %-25s = %24.16f [Eh]\n", "Total Energy",             energies_["Total Energy"]);
+    outfile->Printf( "\t %-25s = %24.16f [Eh]\n", "Reference Energy",         variables_["SCF TOTAL ENERGY"]);
+    outfile->Printf( "\t %-25s = %24.16f [Eh]\n", "Singles Energy",           variables_["MP2 SINGLES ENERGY"]);
+    outfile->Printf( "\t %-25s = %24.16f [Eh]\n", "Same-Spin Energy",         variables_["MP2 SAME-SPIN CORRELATION ENERGY"]);
+    outfile->Printf( "\t %-25s = %24.16f [Eh]\n", "Opposite-Spin Energy",     variables_["MP2 OPPOSITE-SPIN CORRELATION ENERGY"]);
+    outfile->Printf( "\t %-25s = %24.16f [Eh]\n", "Correlation Energy",       variables_["MP2 CORRELATION ENERGY"]);
+    outfile->Printf( "\t %-25s = %24.16f [Eh]\n", "Total Energy",             variables_["MP2 TOTAL ENERGY"]);
     outfile->Printf( "\t-----------------------------------------------------------\n");
     outfile->Printf( "\t ================> DF-SCS-MP2 Energies <================== \n");
     outfile->Printf( "\t-----------------------------------------------------------\n");
     outfile->Printf( "\t %-25s = %24.16f [-]\n", "SCS Same-Spin Scale",      sss_);
     outfile->Printf( "\t %-25s = %24.16f [-]\n", "SCS Opposite-Spin Scale",  oss_);
-    outfile->Printf( "\t %-25s = %24.16f [Eh]\n", "SCS Same-Spin Energy",     energies_["SCS Same-Spin Energy"]);
-    outfile->Printf( "\t %-25s = %24.16f [Eh]\n", "SCS Opposite-Spin Energy", energies_["SCS Opposite-Spin Energy"]);
-    outfile->Printf( "\t %-25s = %24.16f [Eh]\n", "SCS Correlation Energy",   energies_["SCS Correlation Energy"]);
-    outfile->Printf( "\t %-25s = %24.16f [Eh]\n", "SCS Total Energy",         energies_["SCS Total Energy"]);
+    outfile->Printf( "\t %-25s = %24.16f [Eh]\n", "SCS Same-Spin Energy",     variables_["SCS-MP2 SAME-SPIN CORRELATION ENERGY"]);
+    outfile->Printf( "\t %-25s = %24.16f [Eh]\n", "SCS Opposite-Spin Energy", variables_["SCS-MP2 OPPOSITE-SPIN CORRELATION ENERGY"]);
+    outfile->Printf( "\t %-25s = %24.16f [Eh]\n", "SCS Correlation Energy",   variables_["SCS-MP2 CORRELATION ENERGY"]);
+    outfile->Printf( "\t %-25s = %24.16f [Eh]\n", "SCS Total Energy",         variables_["SCS-MP2 TOTAL ENERGY"]);
     outfile->Printf( "\t-----------------------------------------------------------\n");
     outfile->Printf( "\n");
 
 
-    Process::environment.globals["CURRENT ENERGY"] = energies_["Total Energy"];
-    Process::environment.globals["CURRENT CORRELATION ENERGY"] = energies_["Correlation Energy"];
-    Process::environment.globals["MP2 TOTAL ENERGY"] = energies_["Total Energy"];
-    Process::environment.globals["MP2 SINGLES ENERGY"] = energies_["Singles Energy"];
-    Process::environment.globals["MP2 SAME-SPIN CORRELATION ENERGY"] = energies_["Same-Spin Energy"];
-    Process::environment.globals["MP2 OPPOSITE-SPIN CORRELATION ENERGY"] = energies_["Opposite-Spin Energy"];
-    Process::environment.globals["MP2 CORRELATION ENERGY"] = energies_["Correlation Energy"];
-    Process::environment.globals["SCS-MP2 TOTAL ENERGY"] = energies_["SCS Total Energy"];
-    Process::environment.globals["SCS-MP2 CORRELATION ENERGY"] = energies_["SCS Correlation Energy"];
+    Process::environment.globals["CURRENT ENERGY"] = variables_["MP2 TOTAL ENERGY"];
+    Process::environment.globals["CURRENT CORRELATION ENERGY"] = variables_["MP2 CORRELATION ENERGY"];
+    Process::environment.globals["MP2 TOTAL ENERGY"] = variables_["MP2 TOTAL ENERGY"];
+    Process::environment.globals["MP2 SINGLES ENERGY"] = variables_["MP2 SINGLES ENERGY"];
+    Process::environment.globals["MP2 SAME-SPIN CORRELATION ENERGY"] = variables_["MP2 SAME-SPIN CORRELATION ENERGY"];
+    Process::environment.globals["MP2 OPPOSITE-SPIN CORRELATION ENERGY"] = variables_["MP2 OPPOSITE-SPIN CORRELATION ENERGY"];
+    Process::environment.globals["MP2 CORRELATION ENERGY"] = variables_["MP2 CORRELATION ENERGY"];
+    Process::environment.globals["SCS-MP2 TOTAL ENERGY"] = variables_["SCS-MP2 TOTAL ENERGY"];
+    Process::environment.globals["SCS-MP2 CORRELATION ENERGY"] = variables_["SCS-MP2 CORRELATION ENERGY"];
 
 }
 void DFMP2::print_gradients()
@@ -846,7 +854,7 @@ void RDFMP2::print_header()
 {
     int nthread = 1;
     #ifdef _OPENMP
-        nthread = omp_get_max_threads();
+        nthread = Process::environment.get_n_threads();
     #endif
 
     outfile->Printf( "\t --------------------------------------------------------\n");
@@ -889,7 +897,7 @@ void RDFMP2::form_Aia()
     int nthread = 1;
     #ifdef _OPENMP
         if (options_.get_int("DF_INTS_NUM_THREADS") == 0) {
-            nthread = omp_get_max_threads();
+            nthread = Process::environment.get_n_threads();
         } else {
             nthread = options_.get_int("DF_INTS_NUM_THREADS");
         }
@@ -1056,7 +1064,7 @@ void RDFMP2::form_energy()
     // Thread considerations
     int nthread = 1;
     #ifdef _OPENMP
-        nthread = omp_get_max_threads();
+        nthread = Process::environment.get_n_threads();
     #endif
 
     // Memory
@@ -1166,8 +1174,8 @@ void RDFMP2::form_energy()
     }
     psio_->close(PSIF_DFMP2_AIA,0);
 
-    energies_["Same-Spin Energy"] = e_ss;
-    energies_["Opposite-Spin Energy"] = e_os;
+    variables_["MP2 SAME-SPIN CORRELATION ENERGY"] = e_ss;
+    variables_["MP2 OPPOSITE-SPIN CORRELATION ENERGY"] = e_os;
 }
 void RDFMP2::form_Pab()
 {
@@ -1183,7 +1191,7 @@ void RDFMP2::form_Pab()
     // Thread considerations
     int nthread = 1;
     #ifdef _OPENMP
-        nthread = omp_get_max_threads();
+        nthread = Process::environment.get_n_threads();
     #endif
 
     // Memory
@@ -1355,8 +1363,8 @@ void RDFMP2::form_Pab()
 
     psio_->close(PSIF_DFMP2_AIA,1);
 
-    energies_["Same-Spin Energy"] = e_ss;
-    energies_["Opposite-Spin Energy"] = e_os;
+    variables_["MP2 SAME-SPIN CORRELATION ENERGY"] = e_ss;
+    variables_["MP2 OPPOSITE-SPIN CORRELATION ENERGY"] = e_os;
 }
 void RDFMP2::form_Pij()
 {
@@ -1372,7 +1380,7 @@ void RDFMP2::form_Pij()
     // Thread considerations
     int nthread = 1;
     #ifdef _OPENMP
-        nthread = omp_get_max_threads();
+        nthread = Process::environment.get_n_threads();
     #endif
 
     // Memory
@@ -1552,7 +1560,7 @@ void RDFMP2::form_AB_x_terms()
 
     int num_threads = 1;
     #ifdef _OPENMP
-        num_threads = omp_get_max_threads();
+        num_threads = Process::environment.get_n_threads();
     #endif
 
     // => Integrals <= //
@@ -1708,7 +1716,7 @@ void RDFMP2::form_Amn_x_terms()
 
     int num_threads = 1;
     #ifdef _OPENMP
-        num_threads = omp_get_max_threads();
+        num_threads = Process::environment.get_n_threads();
     #endif
 
     // => Integrals <= //
@@ -1920,7 +1928,7 @@ void RDFMP2::form_L()
 
     int num_threads = 1;
     #ifdef _OPENMP
-        num_threads = omp_get_max_threads();
+        num_threads = Process::environment.get_n_threads();
     #endif
 
     // => Integrals <= //
@@ -2638,6 +2646,8 @@ void RDFMP2::form_gradient()
     gradient_terms.push_back("Potential");
     gradient_terms.push_back("Overlap");
     gradient_terms.push_back("Coulomb");
+    if(options_.get_bool("PERTURB_H"))
+        gradient_terms.push_back("Perturbation");
     gradient_terms.push_back("Exchange");
     gradient_terms.push_back("Correlation");
     gradient_terms.push_back("Total");
@@ -2734,7 +2744,7 @@ void RDFMP2::form_gradient()
         // Thread count
         int threads = 1;
         #ifdef _OPENMP
-            threads = omp_get_max_threads();
+            threads = Process::environment.get_n_threads();
         #endif
 
         // Potential derivatives
@@ -2800,6 +2810,234 @@ void RDFMP2::form_gradient()
     }
     timer_off("Grad: V");
 
+    // If an external field exists, add it to the one-electron Hamiltonian
+    py::object pyExtern = dynamic_cast<PythonDataType*>(options_["EXTERN"].get())->to_python();
+    if (pyExtern) {
+        std::shared_ptr<ExternalPotential> external = pyExtern.cast<std::shared_ptr<ExternalPotential>>();
+        if (external) {
+            gradient_terms.push_back("External Potential");
+            timer_on("Grad: External");
+            gradients_["External Potential"] = external->computePotentialGradients(basisset_, PAO);
+            timer_off("Grad: External");
+        }  // end external
+    }
+
+
+    // => Perturbation Gradient <= //
+    if(options_.get_bool("PERTURB_H")) {
+        timer_on("Grad: Perturbation");
+
+        double xlambda = 0.0;
+        double ylambda = 0.0;
+        double zlambda = 0.0;
+
+        std::string perturb_with = options_.get_str("PERTURB_WITH");
+        if (perturb_with == "DIPOLE_X")
+            xlambda = options_.get_double("PERTURB_MAGNITUDE");
+        else if (perturb_with == "DIPOLE_Y")
+            ylambda = options_.get_double("PERTURB_MAGNITUDE");
+        else if (perturb_with == "DIPOLE_Z")
+            zlambda = options_.get_double("PERTURB_MAGNITUDE");
+        else if (perturb_with == "DIPOLE") {
+            if(options_["PERTURB_DIPOLE"].size() !=3)
+                throw PSIEXCEPTION("The PERTURB dipole should have exactly three floating point numbers.");
+            xlambda = options_["PERTURB_DIPOLE"][0].to_double();
+            ylambda = options_["PERTURB_DIPOLE"][1].to_double();
+            zlambda = options_["PERTURB_DIPOLE"][2].to_double();
+        } else {
+            std::string msg("Gradients for a ");
+            msg += perturb_with;
+            msg += " perturbation are not available yet.\n";
+            throw PSIEXCEPTION(msg);
+        }
+
+        gradients_["Perturbation"] = SharedMatrix(gradients_["Nuclear"]->clone());
+        gradients_["Perturbation"]->set_name("Perturbation Gradient");
+        gradients_["Perturbation"]->zero();
+        double** Pp = gradients_["Perturbation"]->pointer();
+        // Nuclear dipole perturbation derivatives
+        for(int n = 0; n < natom; ++n){
+            double charge = molecule_->Z(n);
+            Pp[n][0] += xlambda*charge;
+            Pp[n][1] += ylambda*charge;
+            Pp[n][2] += zlambda*charge;
+        }
+
+        // Electronic dipole perturbation derivatives
+        std::shared_ptr<OneBodyAOInt> Dint(integral_->ao_dipole(1));
+        const double* buffer = Dint->buffer();
+
+        for (int P = 0; P < basisset_->nshell(); P++) {
+            for (int Q = 0; Q <= P; Q++) {
+
+                Dint->compute_shell_deriv1(P,Q);
+
+                int nP = basisset_->shell(P).nfunction();
+                int oP = basisset_->shell(P).function_index();
+                int aP = basisset_->shell(P).ncenter();
+
+                int nQ = basisset_->shell(Q).nfunction();
+                int oQ = basisset_->shell(Q).function_index();
+                int aQ = basisset_->shell(Q).ncenter();
+
+                const double* ref = buffer;
+                double perm = (P == Q ? 1.0 : 2.0);
+                double prefac;
+
+                /*
+                 * Mu X derivatives
+                 */
+                if (xlambda != 0.0) {
+                    prefac = perm*xlambda;
+                    // Px
+                    for (int p = 0; p < nP; p++) {
+                        for (int q = 0; q < nQ; q++) {
+                            Pp[aP][0] += prefac * PAOp[p + oP][q + oQ] * (*ref++);
+                        }
+                    }
+
+                    // Py
+                    for (int p = 0; p < nP; p++) {
+                        for (int q = 0; q < nQ; q++) {
+                            Pp[aP][1] += prefac * PAOp[p + oP][q + oQ] * (*ref++);
+                        }
+                    }
+
+                    // Pz
+                    for (int p = 0; p < nP; p++) {
+                        for (int q = 0; q < nQ; q++) {
+                            Pp[aP][2] += prefac * PAOp[p + oP][q + oQ] * (*ref++);
+                        }
+                    }
+
+                    // Qx
+                    for (int p = 0; p < nP; p++) {
+                        for (int q = 0; q < nQ; q++) {
+                            Pp[aQ][0] += prefac * PAOp[p + oP][q + oQ] * (*ref++);
+                        }
+                    }
+
+                    // Qy
+                    for (int p = 0; p < nP; p++) {
+                        for (int q = 0; q < nQ; q++) {
+                            Pp[aQ][1] += prefac * PAOp[p + oP][q + oQ] * (*ref++);
+                        }
+                    }
+
+                    // Qz
+                    for (int p = 0; p < nP; p++) {
+                        for (int q = 0; q < nQ; q++) {
+                            Pp[aQ][2] += prefac * PAOp[p + oP][q + oQ] * (*ref++);
+                        }
+                    }
+                } else {
+                    // Xlambda is zero, so we just advance the pointer to the buffer
+                    ref += 6*nP*nQ;
+                }
+
+                /*
+                 * Mu Y derivatives
+                 */
+                if (ylambda != 0.0) {
+                    prefac = perm*ylambda;
+                    // Px
+                    for (int p = 0; p < nP; p++) {
+                        for (int q = 0; q < nQ; q++) {
+                            Pp[aP][0] += prefac * PAOp[p + oP][q + oQ] * (*ref++);
+                        }
+                    }
+
+                    // Py
+                    for (int p = 0; p < nP; p++) {
+                        for (int q = 0; q < nQ; q++) {
+                            Pp[aP][1] += prefac * PAOp[p + oP][q + oQ] * (*ref++);
+                        }
+                    }
+
+                    // Pz
+                    for (int p = 0; p < nP; p++) {
+                        for (int q = 0; q < nQ; q++) {
+                            Pp[aP][2] += prefac * PAOp[p + oP][q + oQ] * (*ref++);
+                        }
+                    }
+
+                    // Qx
+                    for (int p = 0; p < nP; p++) {
+                        for (int q = 0; q < nQ; q++) {
+                            Pp[aQ][0] += prefac * PAOp[p + oP][q + oQ] * (*ref++);
+                        }
+                    }
+
+                    // Qy
+                    for (int p = 0; p < nP; p++) {
+                        for (int q = 0; q < nQ; q++) {
+                            Pp[aQ][1] += prefac * PAOp[p + oP][q + oQ] * (*ref++);
+                        }
+                    }
+
+                    // Qz
+                    for (int p = 0; p < nP; p++) {
+                        for (int q = 0; q < nQ; q++) {
+                            Pp[aQ][2] += prefac * PAOp[p + oP][q + oQ] * (*ref++);
+                        }
+                    }
+                } else {
+                    // Ylambda is zero, so we just advance the pointer to the buffer
+                    ref += 6*nP*nQ;
+                }
+
+                /*
+                 * Mu Z derivatives
+                 */
+                if (zlambda != 0.0) {
+                    prefac = perm*zlambda;
+                    // Px
+                    for (int p = 0; p < nP; p++) {
+                        for (int q = 0; q < nQ; q++) {
+                            Pp[aP][0] += prefac * PAOp[p + oP][q + oQ] * (*ref++);
+                        }
+                    }
+
+                    // Py
+                    for (int p = 0; p < nP; p++) {
+                        for (int q = 0; q < nQ; q++) {
+                            Pp[aP][1] += prefac * PAOp[p + oP][q + oQ] * (*ref++);
+                        }
+                    }
+
+                    // Pz
+                    for (int p = 0; p < nP; p++) {
+                        for (int q = 0; q < nQ; q++) {
+                            Pp[aP][2] += prefac * PAOp[p + oP][q + oQ] * (*ref++);
+                        }
+                    }
+
+                    // Qx
+                    for (int p = 0; p < nP; p++) {
+                        for (int q = 0; q < nQ; q++) {
+                            Pp[aQ][0] += prefac * PAOp[p + oP][q + oQ] * (*ref++);
+                        }
+                    }
+
+                    // Qy
+                    for (int p = 0; p < nP; p++) {
+                        for (int q = 0; q < nQ; q++) {
+                            Pp[aQ][1] += prefac * PAOp[p + oP][q + oQ] * (*ref++);
+                        }
+                    }
+
+                    // Qz
+                    for (int p = 0; p < nP; p++) {
+                        for (int q = 0; q < nQ; q++) {
+                            Pp[aQ][2] += prefac * PAOp[p + oP][q + oQ] * (*ref++);
+                        }
+                    }
+                }
+
+            }
+        }
+        timer_off("Grad: Perturbation");
+    }
     //gradients_["One-Electron"] = SharedMatrix(gradients_["Nuclear"]->clone());
     //gradients_["One-Electron"]->set_name("One-Electron Gradient");
     //gradients_["One-Electron"]->zero();
@@ -2970,7 +3208,7 @@ void UDFMP2::print_header()
 {
     int nthread = 1;
     #ifdef _OPENMP
-        nthread = omp_get_max_threads();
+        nthread = Process::environment.get_n_threads();
     #endif
 
     outfile->Printf( "\t --------------------------------------------------------\n");
@@ -3018,7 +3256,7 @@ void UDFMP2::form_Aia()
     int nthread = 1;
     #ifdef _OPENMP
         if (options_.get_int("DF_INTS_NUM_THREADS") == 0) {
-            nthread = omp_get_max_threads();
+            nthread = Process::environment.get_n_threads();
         } else {
             nthread = options_.get_int("DF_INTS_NUM_THREADS");
         }
@@ -3221,7 +3459,7 @@ void UDFMP2::form_energy()
     // Thread considerations
     int nthread = 1;
     #ifdef _OPENMP
-        nthread = omp_get_max_threads();
+        nthread = Process::environment.get_n_threads();
     #endif
 
     // Memory
@@ -3342,7 +3580,7 @@ void UDFMP2::form_energy()
     // Thread considerations
     int nthread = 1;
     #ifdef _OPENMP
-        nthread = omp_get_max_threads();
+        nthread = Process::environment.get_n_threads();
     #endif
 
     // Memory
@@ -3467,7 +3705,7 @@ void UDFMP2::form_energy()
     // Thread considerations
     int nthread = 1;
     #ifdef _OPENMP
-        nthread = omp_get_max_threads();
+        nthread = Process::environment.get_n_threads();
     #endif
 
     // Memory
@@ -3583,8 +3821,8 @@ void UDFMP2::form_energy()
 
     /* End BB Terms */ }
 
-    energies_["Same-Spin Energy"] = e_ss;
-    energies_["Opposite-Spin Energy"] = e_os;
+    variables_["MP2 SAME-SPIN CORRELATION ENERGY"] = e_ss;
+    variables_["MP2 OPPOSITE-SPIN CORRELATION ENERGY"] = e_os;
 }
 void UDFMP2::form_Pab()
 {
@@ -3646,7 +3884,7 @@ void RODFMP2::print_header()
 {
     int nthread = 1;
     #ifdef _OPENMP
-        nthread = omp_get_max_threads();
+        nthread = Process::environment.get_n_threads();
     #endif
 
     outfile->Printf( "\t --------------------------------------------------------\n");

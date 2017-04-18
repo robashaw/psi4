@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2016 The Psi4 Developers.
+ * Copyright (c) 2007-2017 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -464,6 +464,8 @@ double CCEnergyWavefunction::compute_energy()
         pair_energies(&ecc_aa, &ecc_ab);
         print_pair_energies(emp2_aa, emp2_ab, ecc_aa, ecc_ab);
     }
+
+    if(params_.wfn == "CC2" && params_.dertype ==1) t1_ijab();
 
     if( (params_.wfn == "CC3" || params_.wfn == "EOM_CC3" )
             && (params_.dertype == 1 || params_.dertype == 3) && params_.ref == 0) {

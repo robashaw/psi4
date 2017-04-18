@@ -5,7 +5,7 @@ find_package(Perl QUIET)
 #
 # The following labels are defined:
 #
-#  minitests   = Does Psi4 work? A few basic operational tests plus
+#  smoketests  = Does Psi4 work? A few basic operational tests plus
 #                one from each addon and addin
 #  quicktests  = Best coverage possible in a 20 min envelope (for Travis-CI).
 #                This subset is chosen to provide one or more tests for each
@@ -33,10 +33,11 @@ find_package(Perl QUIET)
 set(py3_fail_list pywrap-freq-e-sowreap
                   pywrap-freq-g-sowreap pywrap-opt-sowreap
                   pywrap-db2) 
-foreach(test_name adc1 adc2 casscf-fzc-sp casscf-sa-sp casscf-sp castup1 
+#set(py36_fail_list extern1 extern2)
+foreach(test_name adc1 adc2 casscf-fzc-sp casscf-sa-sp ao-casscf-sp casscf-sp castup1 
                   castup2 castup3 cbs-delta-energy cbs-xtpl-energy 
                   cbs-xtpl-freq cbs-xtpl-gradient cbs-xtpl-opt cbs-xtpl-func 
-                  cbs-xtpl-wrapper cc1 cc10 cc11 cc12 cc13 cc13a cc14 cc15 cc16 
+                  cbs-xtpl-wrapper cc1 cc10 cc11 cc12 cc13 cc13a cc13b cc13c cc13d cc14 cc15 cc16 
                   cc17 cc18 cc19 cc2 cc21 cc22 cc23 cc24 cc25 cc26 cc27 cc28 
                   cc29 cc3 cc30 cc31 cc32 cc33 cc34 cc35 cc36 cc37 cc38 cc39 
                   cc4 cc40 cc41 cc42 cc43 cc44 cc45 cc46 cc47 cc48 cc49 cc4a 
@@ -46,15 +47,16 @@ foreach(test_name adc1 adc2 casscf-fzc-sp casscf-sa-sp casscf-sp castup1
                   cisd-h2o+-2 cisd-h2o-clpse cisd-opt-fd cisd-sp cisd-sp-2 
                   ci-property cubeprop decontract dcft-grad1 dcft-grad2 
                   dcft-grad3 dcft-grad4 dcft1 dcft2 dcft3 dcft4 dcft5 dcft6 
-                  dcft7 dcft8 dcft9 dfcasscf-sa-sp dfcasscf-fzc-sp dfcasscf-sp 
+                  dcft7 dcft8 dcft9 ao-dfcasscf-sp dfcasscf-sa-sp dfcasscf-fzc-sp dfcasscf-sp 
                   dfccd1 dfccdl1 dfccd-grad1 dfccsd1 dfccsdl1 dfccsd-grad1 
                   dfccsdt1 dfccsdat1 dfmp2-1 dfmp2-2 dfmp2-3 dfmp2-4 dfmp2-grad1
-                  dfmp2-grad2 dfmp2-grad3 dfmp2-grad4 dfomp2-1 dfomp2-2 dfomp2-3
+                  dfmp2-grad2 dfmp2-grad3 dfmp2-grad4 dfmp2-grad5 dfomp2-1 dfomp2-2 dfomp2-3
                   dfomp2-4 dfomp2-grad1 dfomp2-grad2 dfomp3-1 dfomp3-2 
                   dfomp3-grad1 dfomp3-grad2 dfomp2p5-1 dfomp2p5-2 dfomp2p5-grad1
                   dfomp2p5-grad2 dfrasscf-sp dfscf-bz2 dft-b2plyp dft-dldf 
                   dft-freq dft-grad dft-pbe0-2 dft-psivar dft-b3lyp dft1 
-                  dft1-alt dft2 dft3 docs-bases docs-dft extern1
+                  dft1-alt dft2 dft3 docs-bases docs-dft extern1 extern2
+                  fsapt1 fsapt2 isapt1 isapt2
                   fci-dipole fci-h2o fci-h2o-2 fci-h2o-fzcv fci-tdm fci-tdm-2 
                   fd-freq-energy fd-freq-energy-large fd-freq-gradient 
                   fd-freq-gradient-large fd-gradient freq-isotope fnocc1 fnocc2 
@@ -78,20 +80,19 @@ foreach(test_name adc1 adc2 casscf-fzc-sp casscf-sa-sp casscf-sp castup1
                   pywrap-db3 pywrap-freq-e-sowreap pywrap-freq-g-sowreap 
                   pywrap-molecule pywrap-opt-sowreap rasci-c2-active rasci-h2o 
                   rasci-ne rasscf-sp sad1 sapt1 sapt2 sapt3 sapt4 sapt5 sapt6 
-                  sapt7 sapt8 scf-bz2 scf-guess-read scf-bs scf1 scf-occ
-                  scf2 scf3 scf4 scf5 scf6 scf-property soscf1 soscf2 stability1
+                  sapt7 sapt8 scf-bz2 scf-guess-read1 scf-guess-read2 scf-bs scf1 scf-occ
+                  scf2 scf3 scf4 scf5 scf6 scf7 scf-property soscf1 soscf2 stability1
                   stability2 tu1-h2o-energy tu2-ch2-energy tu3-h2o-opt 
                   tu4-h2o-freq tu5-sapt tu6-cp-ne2 x2c1 x2c2 x2c3 zaptn-nh2 
-                  options1 fsapt1 fsapt2 isapt1 isapt2
+                  options1 cubeprop-esp
 )
     # Some tests fail in python 3
     if("${PYTHON_VERSION_MAJOR}" VERSION_EQUAL "3")
-        list(FIND py3_fail_list "${test_name}" _index)
-        if (${_index} GREATER -1)
-        # Note to future cmake 3.3: replace above 2 with below 1 and set policy
-        # cmake_policy(SET CMP0057 NEW)
-        #if (${test_name} IN_LIST py3_fail_list)
+        if (${test_name} IN_LIST py3_fail_list)
             message("Python3 incompatible test: ${test_name}... skipping")
+        elseif(("${PYTHON_VERSION_MINOR}" VERSION_EQUAL "6") AND
+               (${test_name} IN_LIST py36_fail_list))
+            message("Python3.6 recalcitrant test: ${test_name}... skipping")
         else()
             add_subdirectory(${test_name})
         endif()
@@ -102,10 +103,14 @@ endforeach()
 
 # Add internal projects
 add_subdirectory(psi4numpy)
+add_subdirectory(cookbook)
 add_subdirectory(python)
 add_subdirectory(json)
-
-
+if(ENABLE_pasture)
+  add_subdirectory(pasture-ccsorttransqt2)
+  message(STATUS "${Cyan}Found Pasture${ColourReset}")
+  message(STATUS "Adding test cases: Psi4 + Pasture")
+endif()
 
 message(STATUS "Adding test cases: Psi4")
 if(NOT PERL_FOUND)
@@ -162,14 +167,28 @@ endif()
 
 # <<<  LIBEFP  >>>
 
-add_subdirectory(libefp)
-message(STATUS "Adding test cases: Psi4 + libefp")
+if(ENABLE_libefp)
+    add_subdirectory(libefp)
+    message(STATUS "Adding test cases: Psi4 + libefp")
+endif()
 
 # <<<  ERD  >>>
 
 if(ENABLE_erd)
     add_subdirectory(erd)
     message(STATUS "Adding test cases: Psi4 + erd")
+endif()
+
+# <<<  gCP  >>>
+
+find_program(gCP_EXECUTABLE
+             NAMES gcp
+             DOC "Path to Grimme's gCP executable")
+
+if(gCP_EXECUTABLE)
+    add_subdirectory(gcp)
+    message(STATUS "${Cyan}Found gCP${ColourReset}: ${gCP_EXECUTABLE}")
+    message(STATUS "Adding test cases: Psi4 + gCP")
 endif()
 
 # <<<  GDMA  >>>
@@ -197,3 +216,19 @@ if(ENABLE_PCMSolver)
     add_subdirectory(pcmsolver)
     message(STATUS "Adding test cases: Psi4 + PCMSolver")
 endif()
+
+# <<<  SIMINT  >>>
+
+if(ENABLE_simint)
+    add_subdirectory(simint)
+    message(STATUS "Adding test cases: Psi4 + simint")
+endif()
+
+# plugin regime
+if(ENABLE_PLUGIN_TESTING)
+    add_subdirectory(plugins)
+    message(STATUS "Adding test cases: Psi4 plugins")
+endif()
+
+# pytest regime
+add_subdirectory(pytest)

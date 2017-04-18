@@ -3,7 +3,7 @@
 .. #
 .. # Psi4: an open-source quantum chemistry software package
 .. #
-.. # Copyright (c) 2007-2016 The Psi4 Developers.
+.. # Copyright (c) 2007-2017 The Psi4 Developers.
 .. #
 .. # The copyrights for code used from other parties are included in
 .. # the corresponding files.
@@ -36,8 +36,8 @@
 
 .. _`sec:freq()`:
 
-Harmonic Vibrational Analysis |w---w| :py:func:`~psi4.frequency` and :py:func:`~psi4.hessian`
-=============================================================================================
+Harmonic Vibrational Analysis and Visualization of Normal Modes |w---w| :py:func:`~psi4.frequency` and :py:func:`~psi4.hessian`
+===============================================================================================================================
 
 * :ref:`Psi4 Native Hessian Methods <table:freq_gen>`
 
@@ -54,3 +54,21 @@ thermochemical analysis.
 
 .. autofunction:: psi4.hessian(name [, molecule, return_wfn, func, dertype, irrep])
 
+Visualization of Normal Modes
+-----------------------------
+
+|PSIfour| has the ability to export a Molden file that stores information about
+the harmonic frequencies and normal modes computed via :py:func:`~psi4.frequency`.
+This feature can be enabled by setting the option |globals__normal_modes_write| to true.
+The filename of the Molden file ends in ``.molden_normal_modes``, and the prefix is
+determined by |globals__writer_file_label| (if set), or else by the name of the
+output file plus the name of the current molecule.
+The normal coordinates saved in the Molden file are normalized and are not
+mass weighted.
+
+Molden Interface Keywords
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: autodir_options_c/globals__normal_modes_write.rst
+
+.. include:: autodir_options_c/globals__writer_file_label.rst

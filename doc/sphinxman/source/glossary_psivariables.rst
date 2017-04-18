@@ -3,7 +3,7 @@
 .. #
 .. # Psi4: an open-source quantum chemistry software package
 .. #
-.. # Copyright (c) 2007-2016 The Psi4 Developers.
+.. # Copyright (c) 2007-2017 The Psi4 Developers.
 .. #
 .. # The copyrights for code used from other parties are included in
 .. # the corresponding files.
@@ -337,7 +337,7 @@ PSI Variables by Alpha
 
    The total electronic energy [H] and correlation energy component [H]
    for the requested configuration interaction level of theory and root 
-   *n* (numbering starts at 1).
+   *n* (numbering starts at 0).
 
 .. psivar:: CI STATE-AVERAGED TOTAL ENERGY
    CI STATE-AVERAGED CORRELATION ENERGY
@@ -543,7 +543,7 @@ PSI Variables by Alpha
    MPn CORRELATION ENERGY
 
    The total electronic energy [H] and correlation energy component [H]
-   for the labeled M\ |o_dots|\ ller–Plesset perturbation theory level.
+   for the labeled |MollerPlesset| perturbation theory level.
    *n* is MP perturbation order.
 
 .. psivar:: NUCLEAR REPULSION ENERGY

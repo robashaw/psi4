@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2016 The Psi4 Developers.
+ * Copyright (c) 2007-2017 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -36,15 +36,40 @@
 #include "psi4/libparallel/ParallelPrinter.h"
 using namespace psi;
 
-ShellInfo::ShellInfo(int am, const std::vector<double> &c,
-                             const std::vector<double> &e, GaussianType pure,
-                             int nc, const Vector3 &center, int start,
-                             PrimitiveType pt)
-    : l_(am), puream_(pure), exp_(e), coef_(c),
+ShellInfo::ShellInfo(int am, const std::vector<double> &c, const std::vector<double> &e,
+                     const std::vector<int> &n, int nc, const Vector3 &center,
+                     int start)
+    : puream_(Cartesian), exp_(e), coef_(c), n_(n),
       nc_(nc), center_(center), start_(start)
 {
-    for(size_t n = 0; n < c.size(); ++n)
-        original_coef_.push_back(c[n]);
+    if(am < 0) {
+        shelltype_ = ECPType1;
+        l_ = -am;
+    } else {
+        shelltype_ = ECPType2;
+        l_ = am;
+    }
+
+    for(size_t prim = 0; prim < c.size(); ++prim){
+        original_coef_.push_back(c[prim]);
+        coef_.push_back(c[prim]);
+        erd_coef_.push_back(c[prim]);
+    }
+
+    ncartesian_ = INT_NCART(l_);
+    nfunction_  = INT_NFUNC(puream_, l_);
+}
+
+ShellInfo::ShellInfo(int am, const std::vector<double> &c, const std::vector<double> &e,
+                     GaussianType pure, int nc, const Vector3 &center,
+                     int start, PrimitiveType pt)
+    : l_(am), puream_(pure), exp_(e), coef_(c),
+      nc_(nc), center_(center), start_(start), shelltype_(Gaussian)
+{
+    for(size_t prim = 0; prim < c.size(); ++prim){
+        original_coef_.push_back(c[prim]);
+        n_.push_back(0);
+    }
 
     ncartesian_ = INT_NCART(l_);
     nfunction_  = INT_NFUNC(puream_, l_);
@@ -83,14 +108,14 @@ void ShellInfo::erd_normalize_shell()
 {
     erd_coef_.clear();
     double sum = 0.0;
+    double m = ((double) l_ + 1.5);
     for(int j = 0; j < nprimitive(); j++){
         for(int k = 0; k <= j; k++){
             double a1 = exp_[j];
             double a2 = exp_[k];
             double temp = (original_coef(j) * original_coef(k));
-            double temp2 = ((double) l_ + 1.5);
             double temp3 = (2.0 * sqrt(a1 * a2) / (a1 + a2));
-            temp3 = pow(temp3, temp2);
+            temp3 = pow(temp3, m);
             temp = temp * temp3;
             sum = sum + temp;
             if(j != k)
@@ -102,7 +127,7 @@ void ShellInfo::erd_normalize_shell()
         prefac = pow(2.0, 2*l_) / df[2*l_];
     double norm = sqrt(prefac / sum);
     for(int j = 0; j < nprimitive(); j++){
-        erd_coef_.push_back(original_coef_[j] * norm);
+        erd_coef_.push_back(original_coef_[j] * norm * pow(exp_[j], 0.5*m));
     }
 }
 
@@ -189,6 +214,7 @@ bool ShellInfo::operator==(const ShellInfo& RHS)const
            erd_coef_==RHS.erd_coef_ &&
            original_coef_==RHS.erd_coef_ &&
            nc_==RHS.nc_ &&
+           n_ == RHS.n_ &&
            center_==RHS.center_ &&
            start_==RHS.start_ &&
            ncartesian_==RHS.ncartesian_ &&
@@ -197,11 +223,21 @@ bool ShellInfo::operator==(const ShellInfo& RHS)const
 }
 
 
-GaussianShell::GaussianShell(int am, int nprimitive, const double *oc, const double *c, const double *ec,
+GaussianShell::GaussianShell(ShellType shelltype, int am, int nprimitive, const double *oc, const double *c, const double *ec,
                              const double *e, GaussianType pure,
                              int nc, const double *center, int start)
-    : l_(am), puream_(pure), exp_(e), original_coef_(oc), coef_(c), erd_coef_(ec),
-      nc_(nc), center_(center), start_(start), nprimitive_(nprimitive)
+    : l_(am), puream_(pure), exp_(e), n_(nullptr), original_coef_(oc), coef_(c), erd_coef_(ec),
+      nc_(nc), center_(center), start_(start), nprimitive_(nprimitive), shelltype_(shelltype)
+{
+    ncartesian_ = INT_NCART(l_);
+    nfunction_  = INT_NFUNC(puream_, l_);
+}
+
+GaussianShell::GaussianShell(ShellType shelltype, int am, int nprimitive, const double *oc, const double *e,
+                             const int *n, GaussianType pure,
+                             int nc, const double *center, int start)
+    : l_(am), puream_(pure), exp_(e), original_coef_(oc), coef_(oc), erd_coef_(oc), n_(n),
+      nc_(nc), center_(center), start_(start), nprimitive_(nprimitive), shelltype_(shelltype)
 {
     ncartesian_ = INT_NCART(l_);
     nfunction_  = INT_NFUNC(puream_, l_);
@@ -229,6 +265,17 @@ void GaussianShell::print(std::string out) const
             printer->Printf( "               %20.8f %20.8f\n",exp_[K], original_coef_[K]);
 
     }
+}
+
+double GaussianShell::evaluate(double r, int l) const {
+    double value = 0.0;
+    if (l_ == l){
+        double r2 = r*r;
+        for (int i = 0; i < nprimitive_; i++){
+            value += pow(r, n_[i]) * original_coef_[i] * std::exp(-exp_[i] * r2);
+        }
+    }
+    return value;
 }
 
 

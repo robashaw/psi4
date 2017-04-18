@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2016 The Psi4 Developers.
+ * Copyright (c) 2007-2017 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -56,9 +56,9 @@ SharedMatrix fd_freq_1(std::shared_ptr <Molecule> mol, Options &options,
     int Natom = mol->natom();
     std::shared_ptr <MatrixFactory> fact;
     py::object pyExtern = dynamic_cast<PythonDataType *>(options["EXTERN"].get())->to_python();
-//    std::shared_ptr <ExternalPotential> external = pyExtern.cast < std::shared_ptr < ExternalPotential >> ();
-    bool noextern = pyExtern ? false : true;
-    CdSalcList salc_list(mol, fact, 0xFF, noextern, noextern);
+    bool project = !pyExtern && !options.get_bool("PERTURB_H");
+
+    CdSalcList salc_list(mol, fact, 0xFF, project, project);
     int Nirrep = salc_list.nirrep();
 
     // *** Build vectors that list indices of salcs for each irrep
@@ -369,6 +369,11 @@ SharedMatrix fd_freq_1(std::shared_ptr <Molecule> mol, Options &options,
 
     // This print function also saves frequencies in wavefunction.
     print_vibrations(mol, modes);
+
+    // Optionally, save normal modes to file.
+    if (options.get_bool("NORMAL_MODES_WRITE")) {
+        save_normal_modes(mol, modes);
+    }
 
     for (int i = 0; i < modes.size(); ++i)
         delete modes[i];

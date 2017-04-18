@@ -3,7 +3,7 @@
 .. #
 .. # Psi4: an open-source quantum chemistry software package
 .. #
-.. # Copyright (c) 2007-2016 The Psi4 Developers.
+.. # Copyright (c) 2007-2017 The Psi4 Developers.
 .. #
 .. # The copyrights for code used from other parties are included in
 .. # the corresponding files.
@@ -69,7 +69,7 @@ using the X2C Hamiltonian. ::
 
     set {
         scf_type pk
-        basis cc-pvdz-decontract
+        basis cc-pvdz-decon
         relativistic x2c
     }
 
@@ -114,7 +114,7 @@ basis set to solve the modified Dirac equation. ::
     }
 
 It is recommended that when employing the X2C relativistic Hamiltonian, that you use a fully
-decontracted basis set. This can be done simply in the input by adding "-decontract" to the 
+decontracted basis set. This can be done simply in the input by adding "-decon" to the 
 name of the primary basis you want to use for the calculation as detailed in 
 :ref:`Decontracted Basis Sets <sec:basisDecontracted>`. Publications resulting from the use 
 of X2C should cite the following publication: [Verma:2015]_

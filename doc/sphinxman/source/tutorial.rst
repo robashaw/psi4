@@ -3,7 +3,7 @@
 .. #
 .. # Psi4: an open-source quantum chemistry software package
 .. #
-.. # Copyright (c) 2007-2016 The Psi4 Developers.
+.. # Copyright (c) 2007-2017 The Psi4 Developers.
 .. #
 .. # The copyrights for code used from other parties are included in
 .. # the corresponding files.
@@ -29,9 +29,19 @@
 
 .. _`sec:tutorial`:
 
-====================
-A |PSIfour| Tutorial
-====================
+==================================================
+Psithon Tutorial: Using |PSIfour| as an Executable
+==================================================
+
+.. note:: Psithon and PsiAPI refer to two modes of interacting with |PSIfour|. In
+   Psithon mode, you write an input file in our domain-specific language
+   (not quite Python) where commands don't have ``psi4.`` in front, then
+   submit it to the executable ``psi4`` which processes the Psithon into
+   pure Python and runs it internally. In PsiAPI mode, you write a pure
+   Python script with ``import psi4`` at the top and commands are behind
+   the ``psi4.`` namespace, then submit it to the ``python`` interpreter.
+   Both modes are equally powerful. This tutorial covers the Psithon
+   mode.
 
 .. note:: Some |PSIfour| functions and keywords have aliases.  For example,
           ``frequency()``, ``frequencies()``, and ``freq()`` all work to 
@@ -78,7 +88,7 @@ For your convenience, the above example can be found in
 :srcsample:`tu1-h2o-energy`.
 You can run it if you wish.
 Once |PSIfour| is in your path (see the 
-`User Configuration <https://github.com/psi4/psi4/wiki/3_Building#configure-runtime>`_ 
+:ref:`User Configuration <faq:runordinaryexe>`
 section of the installation instructions), you can run this computation by typing
 
    >>> psi4 input.dat output.dat

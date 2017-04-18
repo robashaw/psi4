@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2016 The Psi4 Developers.
+ * Copyright (c) 2007-2017 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -69,6 +69,10 @@ class VIBRATION {
     friend bool ascending(const VIBRATION *, const VIBRATION *);
     friend void print_vibrations(std::shared_ptr<Molecule> mol, std::vector<VIBRATION *> modes);
 
+    double get_km() {return km;}
+    double get_cm() {return cm;}
+    double get_lx(int i) {return lx[i];}
+
     VIBRATION(int irrep_in, double km_in, double *lx_in) { irrep = irrep_in; km = km_in; lx = lx_in; }
     ~VIBRATION() { free(lx); }
 };
@@ -92,6 +96,10 @@ void mass_weight_columns_plus_one_half(SharedMatrix B);
 // displace an atomic coordinate
 void displace_atom(SharedMatrix geom, const int atom, const int coord,
                    const int sign, const double disp_size);
+
+// save gemetry and normal modes to files
+void save_normal_modes(std::shared_ptr<Molecule> mol,
+                       std::vector<VIBRATION *> modes);
 
 
 template <class T>

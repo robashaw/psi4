@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2016 The Psi4 Developers.
+ * Copyright (c) 2007-2017 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -69,7 +69,7 @@ void DirectJK::common_init()
 {
     df_ints_num_threads_ = 1;
     #ifdef _OPENMP
-        df_ints_num_threads_ = omp_get_max_threads();
+        df_ints_num_threads_ = Process::environment.get_n_threads();
     #endif
 }
 void DirectJK::print_header() const
@@ -114,8 +114,12 @@ void DirectJK::compute_JK()
 
     if (do_J_ || do_K_) {
         std::vector<std::shared_ptr<TwoBodyAOInt> > ints;
-        for (int thread = 0; thread < df_ints_num_threads_; thread++) {
-            ints.push_back(std::shared_ptr<TwoBodyAOInt>(factory->erd_eri()));
+        ints.push_back(std::shared_ptr<TwoBodyAOInt>(factory->eri()));
+        for (int thread = 1; thread < df_ints_num_threads_; thread++) {
+            if(ints[0]->cloneable())
+                ints.push_back(std::shared_ptr<TwoBodyAOInt>(ints[0]->clone()));
+            else
+                ints.push_back(std::shared_ptr<TwoBodyAOInt>(factory->eri()));
         }
         if (do_J_ && do_K_) {
             build_JK(ints,D_ao_,J_ao_,K_ao_);

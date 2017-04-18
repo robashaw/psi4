@@ -3,7 +3,7 @@
 .. #
 .. # Psi4: an open-source quantum chemistry software package
 .. #
-.. # Copyright (c) 2007-2016 The Psi4 Developers.
+.. # Copyright (c) 2007-2017 The Psi4 Developers.
 .. #
 .. # The copyrights for code used from other parties are included in
 .. # the corresponding files.
@@ -47,7 +47,7 @@
 .. |o_acute|      unicode:: U+00F3
 .. |o_circumflex| unicode:: U+00F4
 .. |o_tilde|      unicode:: U+00F5
-.. |o_dots|       unicode:: U+00F6
+.. |o_dots|       unicode:: U+00F6 .. as in L\ |o_dots|\ wdin
 .. |o_slash|      unicode:: U+00F8 .. as in M\ |o_slash|\ ller
 .. |u_grave|      unicode:: U+00F9
 .. |u_acute|      unicode:: U+00FA

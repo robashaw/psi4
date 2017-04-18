@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2016 The Psi4 Developers.
+ * Copyright (c) 2007-2017 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -61,10 +61,14 @@ namespace psi { namespace ccdensity {
 
 void onepdm(struct RHO_Params rho_params)
 {
-  dpdfile2 D, T1, L1, Z;
+  dpdfile2 D, D1, T1, L1, Z;
   dpdbuf4 T2, L2;
   double trace=0.0, dot_AI, dot_IA, dot_ai, dot_ia;
   double factor=0.0;
+  bool L2_T2_T_F=true;
+
+  // L2 * T2 * T * F is absent for CC2 Lagrangian
+  if(params.wfn == "CC2" && params.dertype == 1) L2_T2_T_F = false;  
 
   if(params.ref == 0 || params.ref == 1) { /** RHF/ROHF **/
     global_dpd_->file2_init(&D, PSIF_CC_OEI, 0, 0, 0, rho_params.DIJ_lbl);
@@ -142,6 +146,33 @@ void onepdm(struct RHO_Params rho_params)
     global_dpd_->file2_close(&T1);
     trace += global_dpd_->file2_trace(&D);
     global_dpd_->file2_close(&D);
+    /* add the T3 contributions to CCSD(T) onepdm calculated
+     in cctriples*/
+    if(params.wfn == "CCSD_T" && params.ref == 0) {
+      global_dpd_->file2_init(&D, PSIF_CC_OEI, 0, 0, 0, rho_params.DIJ_lbl);
+      global_dpd_->file2_init(&D1, PSIF_CC_OEI, 0, 0, 0, "DIJ(T)");
+      global_dpd_->file2_axpy(&D1, &D, 1.0, 0);
+      global_dpd_->file2_close(&D);
+      global_dpd_->file2_close(&D1);
+
+      global_dpd_->file2_init(&D, PSIF_CC_OEI, 0, 0, 0, rho_params.Dij_lbl);
+      global_dpd_->file2_init(&D1, PSIF_CC_OEI, 0, 0, 0, "DIJ(T)");
+      global_dpd_->file2_axpy(&D1, &D, 1.0, 0);
+      global_dpd_->file2_close(&D);
+      global_dpd_->file2_close(&D1);
+
+      global_dpd_->file2_init(&D, PSIF_CC_OEI, 0, 1, 1, rho_params.DAB_lbl);
+      global_dpd_->file2_init(&D1, PSIF_CC_OEI, 0, 1, 1, "DAB(T)");
+      global_dpd_->file2_axpy(&D1, &D, 1.0, 0);
+      global_dpd_->file2_close(&D);
+      global_dpd_->file2_close(&D1);
+
+      global_dpd_->file2_init(&D, PSIF_CC_OEI, 0, 1, 1, rho_params.Dab_lbl);
+      global_dpd_->file2_init(&D1, PSIF_CC_OEI, 0, 1, 1, "DAB(T)");
+      global_dpd_->file2_axpy(&D1, &D, 1.0, 0);
+      global_dpd_->file2_close(&D);
+      global_dpd_->file2_close(&D1);
+    }
 
     /*outfile->Printf( "\n\tTrace of onepdm = %20.15f\n", trace);*/
 
@@ -171,6 +202,8 @@ void onepdm(struct RHO_Params rho_params)
     global_dpd_->contract222(&Z, &T1, &D, 0, 1, -1.0, 1.0);
     global_dpd_->file2_close(&T1);
     global_dpd_->file2_close(&Z);
+
+    if(L2_T2_T_F){
     /*  D(I,A) << L2(MN,EF) T2(IN,EF) T(M,A) + L2(Mn,Ef) T2(In,Ef) T(M,A) */
     global_dpd_->file2_init(&Z, PSIF_CC_TMP0, 0, 0, 0, "Z(I,M)");
     global_dpd_->buf4_init(&L2, PSIF_CC_GLG, 0, 0, 7, 2, 7, 0, "LIJAB");
@@ -204,6 +237,7 @@ void onepdm(struct RHO_Params rho_params)
     global_dpd_->file2_close(&T1);
     global_dpd_->file2_close(&Z);
     global_dpd_->file2_close(&D);
+    }
 
     /* This term is * L0 = 0 for excited states */
     if (rho_params.L_ground) {
@@ -231,6 +265,8 @@ void onepdm(struct RHO_Params rho_params)
     global_dpd_->contract222(&Z, &T1, &D, 0, 1, -1.0, 1.0);
     global_dpd_->file2_close(&T1);
     global_dpd_->file2_close(&Z);
+
+    if (L2_T2_T_F){
     global_dpd_->file2_init(&Z, PSIF_CC_TMP0, 0, 0, 0, "Z(i,m)");
     global_dpd_->buf4_init(&L2, PSIF_CC_GLG, 0, 0, 7, 2, 7, 0, "Lijab");
     global_dpd_->buf4_init(&T2, PSIF_CC_TAMPS, 0, 0, 7, 2, 7, 0, "tijab");
@@ -262,6 +298,7 @@ void onepdm(struct RHO_Params rho_params)
     global_dpd_->file2_close(&T1);
     global_dpd_->file2_close(&Z);
     global_dpd_->file2_close(&D);
+    }
 
     /* Note that these blocks are still stored occ/vir */
     global_dpd_->file2_init(&L1, PSIF_CC_GLG, 0, 0, 1, "LIA");
@@ -417,6 +454,8 @@ void onepdm(struct RHO_Params rho_params)
     global_dpd_->contract222(&Z, &T1, &D, 0, 1, -1.0, 1.0);
     global_dpd_->file2_close(&T1);
     global_dpd_->file2_close(&Z);
+
+    if (L2_T2_T_F){
     /*  D(I,A) << L2(MN,EF) T2(IN,EF) T(M,A) + L2(Mn,Ef) T2(In,Ef) T(M,A) */
     global_dpd_->file2_init(&Z, PSIF_CC_TMP0, 0, 0, 0, "Z(I,M)");
     global_dpd_->buf4_init(&L2, PSIF_CC_GLG, 0, 0, 7, 2, 7, 0, "LIJAB");
@@ -450,6 +489,7 @@ void onepdm(struct RHO_Params rho_params)
     global_dpd_->file2_close(&T1);
     global_dpd_->file2_close(&Z);
     global_dpd_->file2_close(&D);
+    }
 
     /* This term is * L0 = 0 for excited states */
     if (rho_params.L_ground) {
@@ -477,6 +517,8 @@ void onepdm(struct RHO_Params rho_params)
     global_dpd_->contract222(&Z, &T1, &D, 0, 1, -1.0, 1.0);
     global_dpd_->file2_close(&T1);
     global_dpd_->file2_close(&Z);
+
+    if (L2_T2_T_F){
     global_dpd_->file2_init(&Z, PSIF_CC_TMP0, 0, 2, 2, "Z(i,m)");
     global_dpd_->buf4_init(&L2, PSIF_CC_GLG, 0, 10, 17, 12, 17, 0, "Lijab");
     global_dpd_->buf4_init(&T2, PSIF_CC_TAMPS, 0, 10, 17, 12, 17, 0, "tijab");
@@ -508,6 +550,7 @@ void onepdm(struct RHO_Params rho_params)
     global_dpd_->file2_close(&T1);
     global_dpd_->file2_close(&Z);
     global_dpd_->file2_close(&D);
+    }
 
     /* Note that these blocks are still stored occ/vir */
     global_dpd_->file2_init(&L1, PSIF_CC_GLG, 0, 0, 1, "LIA");

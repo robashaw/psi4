@@ -12,7 +12,7 @@ macro(add_regression_test _name _labels)
     # This is the psi command to actually run the tests
     set(PSIEXE ${STAGED_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/psi4)
     # This is the path to the psi4 library
-    set(PSILIB ${STAGED_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR})
+    set(PSILIB ${STAGED_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}${PYMOD_INSTALL_LIBDIR})
     # This is the python script that we call, to call psi4, to run the tests
     set(TESTEXE ${PROJECT_SOURCE_DIR}/tests/runtest.py)
     # This is the psidatadir directory that the script that we call, to call psi4, to run the tests gets its info
@@ -28,11 +28,9 @@ macro(add_regression_test _name _labels)
     get_filename_component(dir ${dir} NAME)
     if("${dir}" STREQUAL "tests")
         set(TEST_RUN_DIR ${PROJECT_BINARY_DIR}/tests/${_name})
-    elseif("${dir}" STREQUAL "plugins")
-        set(TEST_RUN_DIR ${PROJECT_BINARY_DIR}/${dir}/${_name})
-    elseif(("${dir}" STREQUAL "psi4") AND ("${_name}" STREQUAL "skeleton"))
-        set(TEST_RUN_DIR ${PROJECT_BINARY_DIR}/plugins/${_name})
-        set(TEST_SRC_DIR ${TEST_RUN_DIR})
+    elseif(("${dir}" STREQUAL "plugins") AND ("${_name}" MATCHES "skeleton"))
+        set(TEST_RUN_DIR ${PROJECT_BINARY_DIR}/tests/plugins/${_name})
+        set(TEST_SRC_DIR ${TEST_RUN_DIR}/${_name})
     else()
         set(TEST_RUN_DIR ${PROJECT_BINARY_DIR}/tests/${dir}/${_name})
     endif()

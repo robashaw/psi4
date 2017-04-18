@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2016 The Psi4 Developers.
+ * Copyright (c) 2007-2017 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -141,10 +141,10 @@ public:
     virtual void compute_shell_deriv2(int, int);
 
     /// Return true if the clone member can be called. By default returns false.
-    virtual bool cloneable();
+    virtual bool cloneable() const;
 
     /// Returns a clone of this object. By default throws an exception.
-    virtual OneBodyAOInt* clone();
+    virtual OneBodyAOInt* clone() const;
 
     /// Returns the origin (useful for properties)
     Vector3 origin() const { return origin_; }

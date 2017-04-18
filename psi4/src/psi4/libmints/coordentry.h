@@ -3,7 +3,7 @@
  *
  * Psi4: an open-source quantum chemistry software package
  *
- * Copyright (c) 2007-2016 The Psi4 Developers.
+ * Copyright (c) 2007-2017 The Psi4 Developers.
  *
  * The copyrights for code used from other parties are included in
  * the corresponding files.
@@ -230,6 +230,9 @@ public:
     const std::string& label() const { return label_; }
     /// The order in which this appears in the full atom list.
     const int& entry_number() const { return entry_number_; }
+
+    /// Set the nuclear charge for this atom (primarily used in ECP calculations to modify Z).
+    void set_nuclear_charge(double newZ) { Z_ = newZ; }
 
     /** Set the basis for this atom
      * @param type Keyword from input file, basis, ri_basis, etc.
