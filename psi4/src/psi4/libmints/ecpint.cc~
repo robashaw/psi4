@@ -500,7 +500,7 @@ namespace psi {
 				weight = r[i] - A;
 				weight = c * exp(-zeta * weight * weight);
 			
-				for (int l = lstart; l <= lend; l++) 
+				for (int l = lstart; l <= lend; l+=2) 
 					F(l, i) += weight * besselValues(l, i); 
 			}
 		}
@@ -746,15 +746,14 @@ namespace psi {
 		int LB = data.LB;
 		int L = LA + LB;	
 		int maxLBasis = data.maxLBasis;
-
+	
 		ThreeIndex<double> radials(L+1, lam + LA + 1, lam + LB + 1); 
 		TwoIndex<double> temp;
 		for (int N = 0; N < L+1; N++) {
 			radInts.type2(lam, 0, lam + LA, 0, lam + LB, N, U, shellA, shellB, data, temp); 
 			for (int l1 = 0; l1 < lam + LA + 1; l1++)
-			for (int l2 = 0; l2 < lam + LB + 1; l2++) {
+				for (int l2 = 0; l2 < lam + LB + 1; l2++)
 					radials(N, l1, l2) = temp(l1, l2); 
-				}
 		}
 	
 		double Ax = data.A[0]; double Ay = data.A[1]; double Az = data.A[2];
@@ -791,7 +790,6 @@ namespace psi {
 												int N = alpha + beta; 
 												C = CA(0, na, alpha_x, alpha_y, alpha_z) * CB(0, nb, beta_x, beta_y, beta_z); 
 											
-												if (fabs(C) > 1e-15) {
 												for (int lam1 = 0; lam1 <= lam + alpha; lam1++) {
 													for (int lam2 = 0; lam2 <= lam + beta; lam2++) {
 														val1 = prefac * C * radials(N, lam1, lam2);
@@ -800,15 +798,13 @@ namespace psi {
 															for (int mu2 = -lam2; mu2 <= lam2; mu2++) {
 															
 																val2 = val1 * SA(lam1, lam1+mu1) * SB(lam2, lam2+mu2);
-																													 
-																for (int mu = -lam; mu <= lam; mu++)
+															
+																for (int mu = -lam; mu <= lam; mu++) 
 																	values(na, nb, lam+mu) += val2 * angInts.getIntegral(alpha_x, alpha_y, alpha_z, lam, mu, lam1, mu1) * angInts.getIntegral(beta_x, beta_y, beta_z, lam, mu, lam2, mu2);
-																	
 							
 															}
 														}
 													}
-												}
 												}
 											
 											}
@@ -874,11 +870,13 @@ namespace psi {
 			ThreeIndex<double> t2vals(data.ncartA, data.ncartB, 2*l+1);
 			t2vals.fill(0.0);
 			type2(l, U, shellA, shellB, data, CA, CB, t2vals);
+			std::cout << data.LA << " " << data.LB << " " << data.Am << " " << data.Bm << std::endl; 
+			for (auto v : t2vals.data) std::cout << v << std::endl; 
+			std::cout << std::endl;
 			for (int m = -l; m <= l; m++) {
 				for(int na = 0; na < data.ncartA; na++) {
-				  for (int nb = 0; nb < data.ncartB; nb++) {
+					for (int nb = 0; nb < data.ncartB; nb++)
 						values(na, nb) += t2vals(na, nb, l+m);
-				  }
 				}
 			}
 		} else {

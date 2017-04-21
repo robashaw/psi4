@@ -275,7 +275,9 @@ void OneBodyAOInt::compute(SharedMatrix &result)
             int nj = force_cartesian_ ? bs2_->shell(j).ncartesian() : bs2_->shell(j).nfunction();
 
             // Compute the shell (automatically transforms to pure am in needed)
+	    std::cout << "Dartagnan" << std::endl << std::flush;
             compute_shell(i, j);
+	    std::cout << "Pierre" << std::endl << std::flush;
 
             // For each integral that we got put in its contribution
             location = buffer_;
